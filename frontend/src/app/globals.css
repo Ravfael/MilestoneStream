@@ -394,3 +394,132 @@ h1, h2, h3, h4 {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* ===== HERO FLOW DIAGRAM ===== */
+.flow-diagram-container {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0 8px 20px;
+  max-width: 380px;
+  margin: 0 auto;
+}
+
+.flow-connector-line {
+  position: absolute;
+  left: 26px;
+  top: 24px;
+  bottom: 24px;
+  width: 0;
+  border-left: 2px dashed var(--border-strong);
+}
+
+.flow-node {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.flow-timeline-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: transform 200ms ease;
+}
+
+.flow-node:hover .flow-timeline-dot {
+  transform: scale(1.3);
+}
+
+.flow-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-card);
+  flex: 1;
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+
+.flow-card:hover {
+  box-shadow: var(--shadow-elevated);
+  transform: translateX(4px);
+}
+
+.flow-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.flow-card-label {
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.flow-verified-tag {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--success);
+  background: var(--success-light);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ===== CTA BANNER ===== */
+.cta-banner-section {
+  background: linear-gradient(135deg, #1A56DB 0%, #1E429F 50%, #1A56DB 100%);
+}
+
+.cta-banner-pattern {
+  background-image:
+    radial-gradient(circle at 20% 50%, rgba(255,255,255,0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 50%, rgba(255,255,255,0.05) 0%, transparent 50%);
+}
+
+.cta-banner-btn {
+  background: white;
+  color: var(--primary);
+  font-weight: 600;
+  border: none;
+}
+
+.cta-banner-btn:hover {
+  background: #F0F4FF;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  transform: translateY(-1px);
+}
+
+/* ===== USE CASE CARDS ===== */
+.use-case-card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 200ms ease, border-color 200ms ease, transform 200ms ease;
+}
+
+.use-case-card:hover {
+  box-shadow: var(--shadow-elevated);
+  border-left-color: var(--primary-hover);
+  transform: translateY(-2px);
+}

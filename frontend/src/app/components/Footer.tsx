@@ -4,65 +4,93 @@ export default function Footer() {
       <div className="mx-auto max-w-[1200px] px-6">
         <div className="grid gap-12 md:grid-cols-4">
           {/* Brand */}
-          <div className="md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: "var(--primary)" }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+          <div className="md:col-span-2">
+            <div className="flex items-center gap-2.5 mb-4">
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-lg"
+                style={{ background: "linear-gradient(135deg, var(--primary), #3B82F6)" }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 8L12 4L20 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M4 12L12 8L20 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+                  <path d="M4 16L12 12L20 16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
+                  <path d="M12 12V20" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
                 </svg>
               </div>
-              <span className="text-lg font-semibold" style={{ fontFamily: "var(--font-dm-sans)" }}>MilestoneStream</span>
+              <span className="text-lg font-semibold" style={{ fontFamily: "var(--font-dm-sans)" }}>
+                MilestoneStream
+              </span>
             </div>
-            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-              Trustless milestone-based escrow on Arbitrum. Fund builders, release on delivery.
+            <p className="text-sm leading-relaxed max-w-sm" style={{ color: "var(--text-secondary)" }}>
+              Trustless milestone-based escrow on Arbitrum. Fund builders, release on delivery. No middlemen.
             </p>
           </div>
 
-          {/* Protocol */}
+          {/* Links: Protocol */}
           <div>
-            <h4 className="text-sm font-semibold mb-4" style={{ fontFamily: "var(--font-dm-sans)", color: "var(--text-primary)" }}>Protocol</h4>
+            <h4 className="text-sm font-semibold mb-4" style={{ fontFamily: "var(--font-dm-sans)", color: "var(--text-primary)" }}>
+              Protocol
+            </h4>
             <ul className="space-y-2.5">
-              {["Create Stream", "Browse Streams", "Documentation", "Smart Contracts"].map((l) => (
-                <li key={l}><a href="#" className="text-sm no-underline transition-colors hover:text-[var(--text-primary)]" style={{ color: "var(--text-secondary)" }}>{l}</a></li>
+              {[
+                { label: "Docs", href: "/docs" },
+                { label: "GitHub", href: "https://github.com" },
+                { label: "Arbitrum", href: "https://arbitrum.io" },
+                { label: "Contract Addresses", href: "/docs/contracts" },
+              ].map((l) => (
+                <li key={l.label}>
+                  <a
+                    href={l.href}
+                    className="text-sm no-underline transition-colors hover:text-[var(--text-primary)]"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {l.label}
+                  </a>
+                </li>
               ))}
             </ul>
           </div>
 
-          {/* Resources */}
+          {/* Links: Resources */}
           <div>
-            <h4 className="text-sm font-semibold mb-4" style={{ fontFamily: "var(--font-dm-sans)", color: "var(--text-primary)" }}>Resources</h4>
+            <h4 className="text-sm font-semibold mb-4" style={{ fontFamily: "var(--font-dm-sans)", color: "var(--text-primary)" }}>
+              Resources
+            </h4>
             <ul className="space-y-2.5">
-              {["Audit Report", "GitHub", "Bug Bounty", "Brand Kit"].map((l) => (
-                <li key={l}><a href="#" className="text-sm no-underline transition-colors hover:text-[var(--text-primary)]" style={{ color: "var(--text-secondary)" }}>{l}</a></li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Community */}
-          <div>
-            <h4 className="text-sm font-semibold mb-4" style={{ fontFamily: "var(--font-dm-sans)", color: "var(--text-primary)" }}>Community</h4>
-            <ul className="space-y-2.5">
-              {["Discord", "Twitter / X", "Forum", "Governance"].map((l) => (
-                <li key={l}><a href="#" className="text-sm no-underline transition-colors hover:text-[var(--text-primary)]" style={{ color: "var(--text-secondary)" }}>{l}</a></li>
+              {[
+                { label: "How It Works", href: "#how-it-works" },
+                { label: "Milestone Types", href: "#milestone-types" },
+                { label: "Use Cases", href: "#use-cases" },
+                { label: "Create Escrow", href: "/create" },
+              ].map((l) => (
+                <li key={l.label}>
+                  <a
+                    href={l.href}
+                    className="text-sm no-underline transition-colors hover:text-[var(--text-primary)]"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {l.label}
+                  </a>
+                </li>
               ))}
             </ul>
           </div>
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-12 pt-8 border-t flex flex-col gap-4 md:flex-row md:items-center md:justify-between" style={{ borderColor: "var(--border)" }}>
+        <div
+          className="mt-12 pt-8 border-t flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
+          style={{ borderColor: "var(--border)" }}
+        >
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-            © 2026 MilestoneStream. Open source under MIT License.
+            Built on Arbitrum &bull; Open Source &bull; Not audited yet — use at your own risk
           </p>
           <div className="flex items-center gap-4">
-            <a href="#" className="text-xs no-underline transition-colors hover:text-[var(--text-primary)]" style={{ color: "var(--text-muted)" }}>
-              Privacy Policy
-            </a>
-            <a href="#" className="text-xs no-underline transition-colors hover:text-[var(--text-primary)]" style={{ color: "var(--text-muted)" }}>
-              Terms of Use
-            </a>
             <span className="mono text-xs flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
-              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: "var(--success)" }} />
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full"
+                style={{ background: "var(--success)" }}
+              />
               Arbitrum One
             </span>
           </div>

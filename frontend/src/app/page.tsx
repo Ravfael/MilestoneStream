@@ -2,9 +2,9 @@ import Navbar from "./components/Navbar";
 import HeroSection from "./components/HeroSection";
 import StatsBar from "./components/StatsBar";
 import HowItWorks from "./components/HowItWorks";
-import FeaturesSection from "./components/FeaturesSection";
-import LiveStreams from "./components/LiveStreams";
-import CTASection from "./components/CTASection";
+import MilestoneTypes from "./components/MilestoneTypes";
+import UseCases from "./components/UseCases";
+import CTABanner from "./components/CTASection";
 import Footer from "./components/Footer";
 
 export default function Home() {
@@ -15,9 +15,9 @@ export default function Home() {
         <HeroSection />
         <StatsBar />
         <HowItWorks />
-        <FeaturesSection />
-        <LiveStreams />
-        <CTASection />
+        <MilestoneTypes />
+        <UseCases />
+        <CTABanner />
       </main>
       <Footer />
     </>
