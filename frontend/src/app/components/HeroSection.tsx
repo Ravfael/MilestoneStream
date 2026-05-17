@@ -8,11 +8,6 @@ export default function HeroSection() {
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-center">
           {/* Left content */}
           <div className="flex flex-col items-start">
-            {/* Eyebrow badge */}
-            <div className="animate-fade-in-up badge badge-active mb-6">
-              <span className="badge-dot" />
-              Live on Arbitrum
-            </div>
 
             {/* Headline */}
             <h1

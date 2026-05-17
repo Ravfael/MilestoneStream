@@ -152,31 +152,6 @@ export default function WalletConnectButton() {
           }}
         >
           <DropdownItem
-            id="dropdown-funder-dashboard"
-            icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
-              </svg>
-            }
-            label="Funder Dashboard"
-            href="/funder"
-          />
-          <DropdownItem
-            id="dropdown-builder-dashboard"
-            icon={
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="16 18 22 12 16 6" />
-                <polyline points="8 6 2 12 8 18" />
-              </svg>
-            }
-            label="Builder Dashboard"
-            href="/builder"
-          />
-          <div style={{ height: 1, background: "var(--border)", margin: "4px 0" }} />
-          <DropdownItem
             id="dropdown-copy-address"
             icon={
               copied ? (
