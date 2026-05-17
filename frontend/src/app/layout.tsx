@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, DM_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import Providers from "./components/Providers";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -21,7 +22,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MilestoneStream — Trustless Milestone-Based Escrow on Arbitrum",
+  title: "MilestoneStream",
   description:
     "Lock USDC into smart contracts and release funds automatically when builders hit verifiable on-chain milestones. Trustless, transparent, and built on Arbitrum.",
   keywords: [
@@ -34,6 +35,10 @@ export const metadata: Metadata = {
     "funding",
     "grants",
   ],
+
+  icons: {
+    icon: '/logo.png',
+  },
 };
 
 export default function RootLayout({
@@ -46,7 +51,9 @@ export default function RootLayout({
       lang="en"
       className={`${playfair.variable} ${dmSans.variable} ${jetbrains.variable} antialiased`}
     >
-      <body className="min-h-screen flex flex-col">{children}</body>
+      <body className="min-h-screen flex flex-col">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

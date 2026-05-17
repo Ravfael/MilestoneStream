@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { useWallet } from "./WalletContext";
 
 /* ── Deterministic blockie avatar ── */
 function Blockie({ address, size = 24 }: { address: string; size?: number }) {
@@ -57,9 +58,7 @@ function truncateAddress(addr: string) {
 
 /* ── WalletConnectButton ── */
 export default function WalletConnectButton() {
-  // Simulated wallet state — replace with wagmi/rainbowkit hooks
-  const [connected, setConnected] = useState(false);
-  const [address] = useState("0x1a2B3c4D5e6F7890AbCdEf1234567890aBcDeF12");
+  const { connected, address, connect, disconnect } = useWallet();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -87,7 +86,7 @@ export default function WalletConnectButton() {
       <button
         className="btn btn-primary"
         id="btn-connect-wallet"
-        onClick={() => setConnected(true)}
+        onClick={connect}
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="2" y="6" width="20" height="12" rx="2" />
@@ -205,7 +204,7 @@ export default function WalletConnectButton() {
             }
             label="Disconnect"
             onClick={() => {
-              setConnected(false);
+              disconnect();
               setDropdownOpen(false);
             }}
             danger
