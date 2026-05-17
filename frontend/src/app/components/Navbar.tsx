@@ -39,7 +39,7 @@ export default function Navbar() {
     <nav
       id="main-nav"
       className="bg-white/95 backdrop-blur-sm"
-      style={{ height: 64, position: "sticky", top: 0, zIndex: 50 }}
+      style={{ height: 64, top: 0, zIndex: 50 }}
     >
       <div className="mx-auto flex h-full max-w-[1200px] items-center justify-between px-6">
         <div className="flex items-center gap-8">

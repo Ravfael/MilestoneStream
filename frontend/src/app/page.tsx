@@ -4,6 +4,7 @@ import StatsBar from "./components/StatsBar";
 import HowItWorks from "./components/HowItWorks";
 import MilestoneTypes from "./components/MilestoneTypes";
 import UseCases from "./components/UseCases";
+import FAQ from "./components/FAQ";
 import CTABanner from "./components/CTASection";
 import Footer from "./components/Footer";
 
@@ -17,6 +18,7 @@ export default function Home() {
         <HowItWorks />
         <MilestoneTypes />
         <UseCases />
+        <FAQ />
         <CTABanner />
       </main>
       <Footer />

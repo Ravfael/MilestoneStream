@@ -11,7 +11,7 @@ export default function HeroSection() {
 
             {/* Headline */}
             <h1
-              className="animate-fade-in-up delay-100 text-4xl md:text-5xl lg:text-[3.25rem] font-bold tracking-tight"
+              className="animate-fade-in-up delay-400 text-4xl md:text-5xl lg:text-[3.25rem] font-bold tracking-tight"
               style={{ lineHeight: 1.08 }}
             >
               Fund What Gets Built.{" "}

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, DM_Sans, JetBrains_Mono } from "next/font/google";
+import { Playfair_Display, DM_Sans, JetBrains_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import Providers from "./components/Providers";
 
@@ -21,6 +21,14 @@ const jetbrains = JetBrains_Mono({
   variable: "--font-jetbrains",
 });
 
+const instrumentSerif = Instrument_Serif({
+  subsets: ["latin"],
+  weight: "400",
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-instrument-serif",
+});
+
 export const metadata: Metadata = {
   title: "MilestoneStream",
   description:
@@ -35,9 +43,8 @@ export const metadata: Metadata = {
     "funding",
     "grants",
   ],
-
   icons: {
-    icon: '/logo.png',
+    icon: '/logo2.jpg',
   },
 };
 
@@ -49,7 +56,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${dmSans.variable} ${jetbrains.variable} antialiased`}
+      className={`${playfair.variable} ${dmSans.variable} ${jetbrains.variable} ${instrumentSerif.variable} antialiased`}
     >
       <body className="min-h-screen flex flex-col">
         <Providers>{children}</Providers>

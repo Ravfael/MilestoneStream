@@ -62,6 +62,7 @@
   --font-display: var(--font-playfair);
   --font-body: var(--font-dm-sans);
   --font-mono: var(--font-jetbrains);
+  --font-serif-display: var(--font-instrument-serif);
 
   --shadow-card: var(--shadow-card);
   --shadow-elevated: var(--shadow-elevated);
@@ -567,9 +568,151 @@ h1, h2, h3, h4 {
   transition: width 600ms ease;
 }
 
-/* Stat card number animation */
-.stat-number {
-  animation: countUp 0.6s ease-out forwards;
+/* ===== STATS BAR — Editorial Layout ===== */
+
+@keyframes statsReveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stats-section {
+  background: var(--surface);
+  padding: 80px 0;
+}
+
+.stats-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0;
+}
+
+/* Vertical dividers via border-left on all but the first */
+.stats-block + .stats-block {
+  border-left: 1px solid var(--border);
+}
+
+.stats-block {
+  padding: 0 40px;
+  opacity: 0;
+  animation: statsReveal 0.6s ease-out forwards;
+  /* first block has no left padding to align with container edge */
+}
+
+.stats-block:first-child {
+  padding-left: 0;
+}
+
+.stats-block:last-child {
+  padding-right: 0;
+}
+
+/* Thin colored accent line */
+.stats-accent-line {
+  width: 24px;
+  height: 2px;
+  border-radius: 1px;
+  margin-bottom: 16px;
+  transition: width 300ms ease;
+}
+
+.stats-block:hover .stats-accent-line {
+  width: 36px;
+}
+
+/* Label — uppercase, tracked, above the number */
+.stats-label {
+  display: block;
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+/* Number row — holds the big number + optional suffix */
+.stats-number-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* The big number — Instrument Serif italic, editorial feel */
+.stats-number {
+  font-family: var(--font-instrument-serif), 'Georgia', serif;
+  font-style: italic;
+  font-size: 3.5rem;
+  line-height: 1;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  transition: color 300ms ease;
+}
+
+.stats-block:hover .stats-number {
+  color: var(--primary);
+}
+
+/* Suffix — muted, small, aligned to baseline */
+.stats-suffix {
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+/* ===== RESPONSIVE: 2×2 grid on mobile ===== */
+@media (max-width: 768px) {
+  .stats-section {
+    padding: 56px 0;
+  }
+
+  .stats-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 40px 0;
+  }
+
+  /* Remove all vertical dividers on mobile */
+  .stats-block + .stats-block {
+    border-left: none;
+  }
+
+  /* Add divider only between column pairs */
+  .stats-block:nth-child(even) {
+    border-left: 1px solid var(--border);
+  }
+
+  /* Top row bottom border to separate rows */
+  .stats-block:nth-child(-n+2) {
+    padding-bottom: 40px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .stats-block {
+    padding: 0 24px;
+  }
+
+  .stats-block:nth-child(odd) {
+    padding-left: 0;
+  }
+
+  .stats-block:nth-child(even) {
+    padding-right: 0;
+  }
+
+  .stats-number {
+    font-size: 2.75rem;
+  }
 }
 
 /* ===== SELECTION ===== */

@@ -5,22 +5,9 @@ export default function Footer() {
         <div className="grid gap-12 md:grid-cols-4">
           {/* Brand */}
           <div className="md:col-span-2">
-            <div className="flex items-center gap-2.5 mb-4">
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-lg"
-                style={{ background: "linear-gradient(135deg, var(--primary), #3B82F6)" }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                  <path d="M4 8L12 4L20 8" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M4 12L12 8L20 12" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
-                  <path d="M4 16L12 12L20 16" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" />
-                  <path d="M12 12V20" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.6" />
-                </svg>
-              </div>
-              <span className="text-lg font-semibold" style={{ fontFamily: "var(--font-dm-sans)" }}>
-                MilestoneStream
-              </span>
-            </div>
+            <a href="/" className="inline-flex items-center no-underline mb-4" id="footer-logo">
+              <img src="/logo.png" alt="MilestoneStream" className="h-8 w-auto" />
+            </a>
             <p className="text-sm leading-relaxed max-w-sm" style={{ color: "var(--text-secondary)" }}>
               Trustless milestone-based escrow on Arbitrum. Fund builders, release on delivery. No middlemen.
             </p>
@@ -85,15 +72,6 @@ export default function Footer() {
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             Built on Arbitrum &bull; Open Source &bull; Not audited yet — use at your own risk
           </p>
-          <div className="flex items-center gap-4">
-            <span className="mono text-xs flex items-center gap-1.5" style={{ color: "var(--text-muted)" }}>
-              <span
-                className="inline-block w-1.5 h-1.5 rounded-full"
-                style={{ background: "var(--success)" }}
-              />
-              Arbitrum One
-            </span>
-          </div>
         </div>
       </div>
     </footer>
