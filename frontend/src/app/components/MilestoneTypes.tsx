@@ -6,18 +6,18 @@ export default function MilestoneTypes() {
       <div className="mx-auto max-w-[1200px] px-6">
         
         {/* Section header */}
-        <div className="mb-12 md:mb-16 text-left">
+        <div className="mb-8 text-left">
           <span className="block text-xs font-bold tracking-wide uppercase mb-3 text-[#1A56DB]">
             VERIFICATION TYPES
           </span>
           <h2 
-            className="text-4xl md:text-5xl font-bold mb-4 text-[#0F172A]" 
+            className="text-3xl font-bold mb-2 text-[#0F172A]" 
             style={{ fontFamily: "'Instrument Serif', serif" }}
           >
             What Can Be Verified On-Chain?
           </h2>
           <p 
-            className="text-lg md:text-xl text-[#64748B] max-w-2xl" 
+            className="text-sm mt-2 text-[#64748B] max-w-2xl" 
             style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             Six built-in milestone types or bring your own logic.
@@ -28,8 +28,8 @@ export default function MilestoneTypes() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           
           {/* Row 1 */}
-          {/* LARGE CARD 1 - Contract Deployed */}
-          <div className="md:col-span-2 flex flex-col justify-between bg-[#FFFFFF] border border-[#E2E8F0] rounded-[16px] p-6 min-h-[240px] group">
+          {/* LARGE CARD 1 - Contract Deployed — Elevated */}
+          <div className="md:col-span-2 flex flex-col justify-between bg-[#FFFFFF] hover:bg-[#F8FAFC] border border-[#CBD5E1] hover:border-[#CBD5E1] transition-all duration-200 ease-in-out rounded-[16px] p-6 min-h-[240px] group" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div>
               <span className="text-xs font-bold tracking-wider mb-2 block text-[#1A56DB]">DEPLOY</span>
               <h3 className="text-lg font-semibold mb-2 text-[#0F172A]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -40,8 +40,8 @@ export default function MilestoneTypes() {
               </p>
             </div>
             
-            <div className="mt-6 pt-4 border-t border-gray-100">
-              <div className="bg-[#F8FAFC] rounded-lg p-3 text-xs flex flex-col gap-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <div className="mt-6 pt-4 border-t border-[#E2E8F0]">
+              <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-3 text-xs flex flex-col gap-2" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 <div className="flex justify-between items-center">
                   <span className="text-[#64748B]">Address:</span>
                   <span className="text-[#1A56DB]">0x1A2b...9F3c</span>
@@ -61,17 +61,17 @@ export default function MilestoneTypes() {
             </div>
           </div>
 
-          {/* SMALL CARD 3 - Transaction Volume */}
-          <div className="md:col-span-1 flex flex-col bg-[#FFFFFF] border border-[#E2E8F0] rounded-[16px] p-6 min-h-[200px] group">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center justify-center w-[32px] h-[32px] rounded-lg bg-[#EFF6FF]">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A56DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
-                </svg>
+          {/* SMALL CARD - Transaction Volume — Base */}
+          <div className="md:col-span-1 flex flex-col justify-between bg-[#F8FAFC] hover:bg-[#F1F5F9] border border-[#E2E8F0] hover:border-[#CBD5E1] transition-all duration-200 ease-in-out rounded-[16px] p-6 min-h-[200px] group">
+            <div>
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center justify-center w-[32px] h-[32px] rounded-lg bg-transparent text-[#1A56DB]">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-bold tracking-wider uppercase text-[#1A56DB]">ON-CHAIN</span>
               </div>
-              <span className="text-[10px] font-bold tracking-wider uppercase text-[#64748B]">ON-CHAIN</span>
-            </div>
-            <div className="flex-grow">
               <h3 className="text-base font-semibold mb-2 text-[#0F172A]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 Transaction Volume
               </h3>
@@ -79,27 +79,37 @@ export default function MilestoneTypes() {
                 Verify X transactions processed through a contract.
               </p>
             </div>
-            <div className="mt-4">
-              <span className="inline-block px-2 py-1 rounded bg-gray-50 text-xs text-[#64748B]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-3 my-3">
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-xs text-[#64748B]" style={{ fontFamily: "'DM Sans', sans-serif" }}>Last 24h</span>
+                <span className="text-xs font-medium text-[#1A56DB]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>+2,847 txns</span>
+              </div>
+              <div className="w-full h-1.5 rounded-full overflow-hidden bg-[#E2E8F0]">
+                <div className="h-full rounded-full bg-[#1A56DB]" style={{ width: '73%' }}></div>
+              </div>
+              <p className="text-xs text-[#64748B] mt-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>73% of goal</p>
+            </div>
+            <div>
+              <span className="inline-block px-2 py-1 rounded bg-white border border-[#E2E8F0] text-xs text-[#1A56DB]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 e.g. 1,000 txns
               </span>
             </div>
           </div>
 
-          {/* SMALL CARD 4 - Token Holders */}
-          <div className="md:col-span-1 flex flex-col bg-[#FFFFFF] border border-[#E2E8F0] rounded-[16px] p-6 min-h-[200px] group">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center justify-center w-[32px] h-[32px] rounded-lg bg-[#EFF6FF]">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A56DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                </svg>
+          {/* SMALL CARD - Token Holders — Base */}
+          <div className="md:col-span-1 flex flex-col justify-between bg-[#F8FAFC] hover:bg-[#F1F5F9] border border-[#E2E8F0] hover:border-[#CBD5E1] transition-all duration-200 ease-in-out rounded-[16px] p-6 min-h-[200px] group">
+            <div>
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center justify-center w-[32px] h-[32px] rounded-lg bg-transparent text-[#1A56DB]">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-bold tracking-wider uppercase text-[#1A56DB]">ERC-20</span>
               </div>
-              <span className="text-[10px] font-bold tracking-wider uppercase text-[#64748B]">ERC-20</span>
-            </div>
-            <div className="flex-grow">
               <h3 className="text-base font-semibold mb-2 text-[#0F172A]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 Token Holders
               </h3>
@@ -107,26 +117,34 @@ export default function MilestoneTypes() {
                 Verify holder count has reached a threshold.
               </p>
             </div>
-            <div className="mt-4">
-              <span className="inline-block px-2 py-1 rounded bg-gray-50 text-xs text-[#64748B]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-3 my-3">
+              <p className="text-xs text-[#64748B] mb-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>Current holders</p>
+              <p className="text-xs font-medium text-[#1A56DB] mb-1.5" style={{ fontFamily: "'JetBrains Mono', monospace" }}>342 / 500</p>
+              <div className="w-full h-1.5 rounded-full overflow-hidden bg-[#E2E8F0]">
+                <div className="h-full rounded-full bg-[#1A56DB]" style={{ width: '68%' }}></div>
+              </div>
+              <p className="text-xs text-[#64748B] mt-1" style={{ fontFamily: "'DM Sans', sans-serif" }}>68% to milestone</p>
+            </div>
+            <div>
+              <span className="inline-block px-2 py-1 rounded bg-white border border-[#E2E8F0] text-xs text-[#1A56DB]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 e.g. 500 holders
               </span>
             </div>
           </div>
 
           {/* Row 2 */}
-          {/* SMALL CARD 5 - Deadline */}
-          <div className="md:col-span-1 flex flex-col bg-[#FFFFFF] border border-[#E2E8F0] rounded-[16px] p-6 min-h-[200px] group">
-            <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center justify-center w-[32px] h-[32px] rounded-lg bg-[#EFF6FF]">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A56DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <polyline points="12 6 12 12 16 14" />
-                </svg>
+          {/* SMALL CARD - Deadline — Base */}
+          <div className="md:col-span-1 flex flex-col justify-between bg-[#F8FAFC] hover:bg-[#F1F5F9] border border-[#E2E8F0] hover:border-[#CBD5E1] transition-all duration-200 ease-in-out rounded-[16px] p-6 min-h-[200px] group">
+            <div>
+              <div className="flex justify-between items-start mb-4">
+                <div className="flex items-center justify-center w-[32px] h-[32px] rounded-lg bg-transparent text-[#1A56DB]">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-bold tracking-wider uppercase text-[#1A56DB]">TIMESTAMP</span>
               </div>
-              <span className="text-[10px] font-bold tracking-wider uppercase text-[#64748B]">TIMESTAMP</span>
-            </div>
-            <div className="flex-grow">
               <h3 className="text-base font-semibold mb-2 text-[#0F172A]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 Deadline
               </h3>
@@ -134,18 +152,37 @@ export default function MilestoneTypes() {
                 Verify a block timestamp or number condition.
               </p>
             </div>
-            <div className="mt-4">
-              <span className="inline-block px-2 py-1 rounded bg-gray-50 text-xs text-[#64748B]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+            <div className="bg-[#F8FAFC] border border-[#E2E8F0] rounded-lg p-3 my-3">
+              <p className="text-xs text-[#64748B] mb-2" style={{ fontFamily: "'DM Sans', sans-serif" }}>Time remaining</p>
+              <div className="flex items-center gap-1">
+                <div className="text-center">
+                  <span className="block text-sm font-semibold text-[#1A56DB]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>12</span>
+                  <span className="block text-[10px] uppercase text-[#64748B]" style={{ fontFamily: "'DM Sans', sans-serif" }}>D</span>
+                </div>
+                <span className="text-sm text-[#64748B] pb-3">:</span>
+                <div className="text-center">
+                  <span className="block text-sm font-semibold text-[#1A56DB]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>04</span>
+                  <span className="block text-[10px] uppercase text-[#64748B]" style={{ fontFamily: "'DM Sans', sans-serif" }}>H</span>
+                </div>
+                <span className="text-sm text-[#64748B] pb-3">:</span>
+                <div className="text-center">
+                  <span className="block text-sm font-semibold text-[#1A56DB]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>33</span>
+                  <span className="block text-[10px] uppercase text-[#64748B]" style={{ fontFamily: "'DM Sans', sans-serif" }}>M</span>
+                </div>
+              </div>
+            </div>
+            <div>
+              <span className="inline-block px-2 py-1 rounded bg-white border border-[#E2E8F0] text-xs text-[#1A56DB]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 e.g. block 21,400,000
               </span>
             </div>
           </div>
 
-          {/* SMALL CARD 6 - Custom Logic */}
-          <div className="md:col-span-1 flex flex-col bg-[#FFFFFF] border border-[#E2E8F0] border-dashed rounded-[16px] p-6 min-h-[200px] group">
+          {/* SMALL CARD - Custom Logic — DARK ACCENT (piano key) */}
+          <div className="md:col-span-1 flex flex-col bg-[#0F172A] hover:bg-[#1E293B] border border-[#1E293B] hover:border-[#334155] transition-all duration-200 ease-in-out rounded-[16px] p-6 min-h-[200px] group">
             <div className="flex justify-between items-start mb-4">
-              <div className="flex items-center justify-center w-[32px] h-[32px] rounded-lg bg-[#EFF6FF]">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A56DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <div className="flex items-center justify-center w-[32px] h-[32px] rounded-lg bg-transparent text-white">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="4 17 10 11 4 5" />
                   <line x1="12" y1="19" x2="20" y2="19" />
                 </svg>
@@ -153,22 +190,22 @@ export default function MilestoneTypes() {
               <span className="text-[10px] font-bold tracking-wider uppercase text-[#64748B]">CUSTOM</span>
             </div>
             <div className="flex-grow">
-              <h3 className="text-base font-semibold mb-2 text-[#0F172A]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <h3 className="text-base font-semibold mb-2 text-[#F8FAFC]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 Custom Logic
               </h3>
-              <p className="text-sm leading-relaxed text-[#64748B]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+              <p className="text-sm leading-relaxed text-[#94A3B8]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                 Write your own verifier contract for any on-chain state.
               </p>
             </div>
             <div className="mt-4">
-              <span className="inline-block px-2 py-1 rounded bg-[#EFF6FF] text-xs text-[#1A56DB]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
+              <span className="inline-block px-2 py-1 rounded bg-[#1E293B] text-xs text-[#94A3B8]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                 IVerifier.sol
               </span>
             </div>
           </div>
 
-          {/* LARGE CARD 2 - TVL Threshold */}
-          <div className="md:col-span-2 flex flex-col justify-between bg-[#FFFFFF] border border-[#E2E8F0] rounded-[16px] p-6 min-h-[240px] group">
+          {/* LARGE CARD 2 - TVL Threshold — Elevated */}
+          <div className="md:col-span-2 flex flex-col justify-between bg-[#FFFFFF] hover:bg-[#F8FAFC] border border-[#CBD5E1] hover:border-[#CBD5E1] transition-all duration-200 ease-in-out rounded-[16px] p-6 min-h-[240px] group" style={{ boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div>
               <span className="text-xs font-bold tracking-wider mb-2 block text-[#1A56DB]">ORACLE</span>
               <h3 className="text-lg font-semibold mb-2 text-[#0F172A]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
@@ -179,7 +216,7 @@ export default function MilestoneTypes() {
               </p>
             </div>
             
-            <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col justify-end flex-grow">
+            <div className="mt-6 pt-4 border-t border-[#E2E8F0] flex flex-col justify-end flex-grow">
               <div className="flex justify-between items-end mb-2">
                 <span className="text-xs font-medium text-[#0F172A]" style={{ fontFamily: "'DM Sans', sans-serif" }}>
                   Target: $50,000 USDC
@@ -194,7 +231,7 @@ export default function MilestoneTypes() {
                 <span className="text-xs text-[#64748B]" style={{ fontFamily: "'JetBrains Mono', monospace" }}>
                   $36,500 / $50,000
                 </span>
-                <span className="text-[10px] uppercase font-bold text-[#64748B]">Chainlink ◆</span>
+                <span className="text-[10px] uppercase font-bold text-[#1A56DB]">CHAINLINK ◆</span>
               </div>
             </div>
           </div>

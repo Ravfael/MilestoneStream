@@ -20,14 +20,15 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2.5">
               {[
-                { label: "Docs", href: "/docs" },
-                { label: "GitHub", href: "https://github.com" },
-                { label: "Arbitrum", href: "https://arbitrum.io" },
-                { label: "Contract Addresses", href: "/docs/contracts" },
+                { label: "Docs", href: "https://github.com/Ravfael/MilestoneStream", external: true },
+                { label: "GitHub", href: "https://github.com/Ravfael/MilestoneStream", external: true },
+                { label: "Arbitrum", href: "https://arbitrum.io", external: true },
+                { label: "Contract Addresses", href: "/docs/contracts", external: false },
               ].map((l) => (
                 <li key={l.label}>
                   <a
                     href={l.href}
+                    {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                     className="text-sm no-underline transition-colors hover:text-[var(--text-primary)]"
                     style={{ color: "var(--text-secondary)" }}
                   >
@@ -45,9 +46,9 @@ export default function Footer() {
             </h4>
             <ul className="space-y-2.5">
               {[
-                { label: "How It Works", href: "#how-it-works" },
-                { label: "Milestone Types", href: "#milestone-types" },
-                { label: "Use Cases", href: "#use-cases" },
+                { label: "How It Works", href: "/#how-it-works" },
+                { label: "Milestone Types", href: "/#milestone-types" },
+                { label: "Use Cases", href: "/#use-cases" },
                 { label: "Create Escrow", href: "/create" },
               ].map((l) => (
                 <li key={l.label}>
