@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import AmountDisplay from "../../components/AmountDisplay";
 import StatusBadge, { StatusType } from "../../components/StatusBadge";
 import MilestoneTypeChip, { MilestoneType } from "../../components/MilestoneTypeChip";
+import { useWallet } from "../../components/WalletContext";
+import { useWriteContract, usePublicClient } from "wagmi";
+import { MILESTONE_ESCROW_ABI } from "../../components/contracts";
 
 // Mock Data
 const MOCK_ESCROW = {
@@ -34,6 +38,7 @@ const MOCK_ESCROW = {
   milestones: [
     {
       id: "m1",
+      index: 0,
       title: "Initial Setup & Contract Deployment",
       type: "contract-deploy" as MilestoneType,
       description: "Deploy the core data aggregation contracts to Arbitrum mainnet. Must include proper event emission for indexing.",
@@ -44,6 +49,7 @@ const MOCK_ESCROW = {
     },
     {
       id: "m2",
+      index: 1,
       title: "Frontend Dashboard MVP",
       type: "deadline" as MilestoneType,
       description: "Complete the frontend displaying top 5 DEXes TVL and 24h volume. Must connect to the deployed subgraph.",
@@ -54,6 +60,7 @@ const MOCK_ESCROW = {
     },
     {
       id: "m3",
+      index: 2,
       title: "Final Audit & Release",
       type: "tx-count" as MilestoneType,
       description: "Dashboard hits 1000 unique interactions and undergoes informal review.",
@@ -83,14 +90,227 @@ const formatAddress = (address: string) => {
 };
 
 export default function EscrowDetailPage() {
-  const [userRole, setUserRole] = useState<"visitor" | "funder" | "builder">("visitor");
-  const escrow = MOCK_ESCROW;
+  const params = useParams();
+  const escrowAddress = params?.id as string;
+
+  const { connected, address } = useWallet();
+  const [demoUserRole, setDemoUserRole] = useState<"visitor" | "funder" | "builder">("visitor");
+  const [escrowState, setEscrowState] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const publicClient = usePublicClient();
+  const { writeContractAsync } = useWriteContract();
+
+  useEffect(() => {
+    async function fetchEscrowDetails() {
+      if (!publicClient || !escrowAddress || !escrowAddress.startsWith("0x")) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        // Check if Escrow contract is deployed
+        const bytecode = await publicClient.getBytecode({
+          address: escrowAddress as `0x${string}`,
+        });
+
+        if (!bytecode || bytecode === "0x") {
+          console.warn("Escrow contract not deployed on this network. Using mock data.");
+          setLoading(false);
+          return;
+        }
+
+        const funder = await publicClient.readContract({
+          address: escrowAddress as `0x${string}`,
+          abi: MILESTONE_ESCROW_ABI,
+          functionName: "funder",
+        });
+        const builder = await publicClient.readContract({
+          address: escrowAddress as `0x${string}`,
+          abi: MILESTONE_ESCROW_ABI,
+          functionName: "builder",
+        });
+        const token = await publicClient.readContract({
+          address: escrowAddress as `0x${string}`,
+          abi: MILESTONE_ESCROW_ABI,
+          functionName: "token",
+        });
+        const totalAmountRaw = await publicClient.readContract({
+          address: escrowAddress as `0x${string}`,
+          abi: MILESTONE_ESCROW_ABI,
+          functionName: "totalAmount",
+        });
+        const releasedRaw = await publicClient.readContract({
+          address: escrowAddress as `0x${string}`,
+          abi: MILESTONE_ESCROW_ABI,
+          functionName: "releasedAmount",
+        });
+        const statusRaw = await publicClient.readContract({
+          address: escrowAddress as `0x${string}`,
+          abi: MILESTONE_ESCROW_ABI,
+          functionName: "status",
+        });
+
+        // Fetch milestones
+        const milestonesList: any[] = [];
+        let i = 0;
+        while (true) {
+          try {
+            const m = await publicClient.readContract({
+              address: escrowAddress as `0x${string}`,
+              abi: MILESTONE_ESCROW_ABI,
+              functionName: "milestones",
+              args: [BigInt(i)],
+            });
+            milestonesList.push(m);
+            i++;
+          } catch (e) {
+            break;
+          }
+        }
+
+        const statusMap: Record<number, string> = {
+          0: "active",
+          1: "completed",
+          2: "cancelled",
+          3: "disputed",
+        };
+        const statusStr = statusMap[statusRaw as number] || "active";
+
+        const getMilestoneType = (verifierAddr: string): string => {
+          const lower = verifierAddr.toLowerCase();
+          if (lower === "0x5fbdb2315678afecb367f032d93f642f64180aa3") return "contract-deploy";
+          if (lower === "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512") return "deadline";
+          if (lower === "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0") return "tx-count";
+          if (lower === "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9") return "tvl";
+          return "deadline";
+        };
+
+        const milestonesFormatted = milestonesList.map((m, idx) => {
+          let milestoneStatusStr = "pending";
+          if (m[6] === 1) milestoneStatusStr = "claimed";
+          else if (m[6] === 2) milestoneStatusStr = "verified";
+          else if (m[6] === 3) milestoneStatusStr = "disputed";
+          else if (m[6] === 4) milestoneStatusStr = "expired";
+
+          return {
+            id: `m-${idx}`,
+            index: idx,
+            title: m[0] || `Milestone ${idx + 1}`,
+            type: getMilestoneType(m[3]),
+            description: m[1] || "Automated milestone verification.",
+            verifierDetails: `Verifier address: ${m[3]}`,
+            amount: Number(m[2]) / 1e6,
+            status: milestoneStatusStr,
+            deadline: m[5] > 0 ? new Date(Number(m[5]) * 1000).toLocaleDateString() : undefined,
+          };
+        });
+
+        const activeDispute = milestonesFormatted.find(m => m.status === "disputed");
+
+        setEscrowState({
+          id: escrowAddress,
+          title: milestonesFormatted[0]?.title ? `${milestonesFormatted[0].title} Escrow` : "Escrow Protocol Contract",
+          description: `Decentralized milestone escrow contract clone deployed on Arbitrum at address ${escrowAddress}.`,
+          tags: ["Decentralized", "Secure", "Arbitrum"],
+          network: "Arbitrum One",
+          status: statusStr,
+          totalLocked: Number(totalAmountRaw) / 1e6,
+          releasedAmount: Number(releasedRaw) / 1e6,
+          remainingAmount: (Number(totalAmountRaw) - Number(releasedRaw)) / 1e6,
+          token: "USDC",
+          usdRate: 1,
+          createdDate: "2026-06-01",
+          deadline: milestonesFormatted[milestonesFormatted.length - 1]?.deadline || "2026-08-30",
+          funder: { address: funder, avatar: "🟣" },
+          builder: { address: builder, avatar: "🟢" },
+          milestones: milestonesFormatted,
+          activityLog: [
+            { id: "al0", event: "Escrow Created & Funded", time: "Just now", txHash: escrowAddress }
+          ],
+          hasDispute: !!activeDispute,
+          disputeDetails: activeDispute ? {
+            challenge: `Milestone ${activeDispute.index + 1} has been disputed by the funder.`,
+            deadline: "Within 48h",
+            arbiter: "Default Arbiter"
+          } : undefined
+        });
+      } catch (e) {
+        console.error("Failed to fetch live escrow details, using mock", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchEscrowDetails();
+  }, [publicClient, escrowAddress]);
+
+  const activeEscrow = escrowState || MOCK_ESCROW;
+
+  const derivedRole = (() => {
+    if (!connected || !address) return "visitor";
+    if (activeEscrow.funder.address.toLowerCase() === address.toLowerCase()) return "funder";
+    if (activeEscrow.builder.address.toLowerCase() === address.toLowerCase()) return "builder";
+    return "visitor";
+  })();
+
+  const handleBuilderClaim = async (milestoneIndex: number) => {
+    if (!publicClient) return;
+    try {
+      const hash = await writeContractAsync({
+        address: activeEscrow.id as `0x${string}`,
+        abi: MILESTONE_ESCROW_ABI,
+        functionName: "claimMilestone",
+        args: [BigInt(milestoneIndex)],
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
+      window.location.reload();
+    } catch (e) {
+      console.error("Claim failed", e);
+    }
+  };
+
+  const handleBuilderRelease = async (milestoneIndex: number) => {
+    if (!publicClient) return;
+    try {
+      const hash = await writeContractAsync({
+        address: activeEscrow.id as `0x${string}`,
+        abi: MILESTONE_ESCROW_ABI,
+        functionName: "releaseMilestone",
+        args: [BigInt(milestoneIndex)],
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
+      window.location.reload();
+    } catch (e) {
+      console.error("Release failed", e);
+    }
+  };
+
+  const handleFunderDispute = async (milestoneIndex: number) => {
+    if (!publicClient) return;
+    try {
+      const hash = await writeContractAsync({
+        address: activeEscrow.id as `0x${string}`,
+        abi: MILESTONE_ESCROW_ABI,
+        functionName: "disputeMilestone",
+        args: [BigInt(milestoneIndex)],
+      });
+      await publicClient.waitForTransactionReceipt({ hash });
+      window.location.reload();
+    } catch (e) {
+      console.error("Dispute failed", e);
+    }
+  };
 
   const getNetworkIcon = (network: string) => {
     if (network === "Arbitrum One") return "🔵";
     if (network === "Robinhood Chain") return "🏹";
     return "🌐";
   };
+
+  const escrow = activeEscrow;
+  const userRole = escrowState ? derivedRole : demoUserRole;
+  const setUserRole = setDemoUserRole;
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--surface)]">
@@ -174,7 +394,7 @@ export default function EscrowDetailPage() {
             </p>
 
             <div className="flex flex-wrap gap-2 mt-auto">
-              {escrow.tags.map(tag => (
+              {escrow.tags.map((tag: any) => (
                 <span key={tag} className="text-xs font-medium bg-[var(--primary-light)] text-[var(--primary)] px-3 py-1.5 rounded-full">
                   {tag}
                 </span>
@@ -279,7 +499,7 @@ export default function EscrowDetailPage() {
             </h3>
             
             <div className="flex flex-col relative before:absolute before:inset-y-0 before:left-[23px] before:w-0.5 before:bg-[var(--border)] ml-1 mt-2">
-              {escrow.milestones.map((milestone, i) => {
+              {escrow.milestones.map((milestone: any, i: number) => {
                 const isClaimed = milestone.status === 'claimed';
                 const isVerified = milestone.status === 'verified';
                 const isDisputed = milestone.status === 'disputed';
@@ -356,17 +576,41 @@ export default function EscrowDetailPage() {
                         {/* Builder Actions */}
                         {userRole === 'builder' && (
                           <>
-                            {isVerified && <button className="btn btn-primary shadow-md flex items-center gap-2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Claim Funds</button>}
+                            {isClaimed && (
+                              <button 
+                                className="btn btn-primary shadow-md flex items-center gap-2"
+                                onClick={() => handleBuilderRelease(milestone.index)}
+                              >
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                </svg> 
+                                Claim Funds (Withdraw)
+                              </button>
+                            )}
                             {isClaimed && <button className="btn btn-secondary bg-[var(--surface)] hover:bg-[var(--border)]">View Proof</button>}
                             {isDisputed && <button className="btn btn-secondary border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger)] hover:text-white">Submit Evidence</button>}
-                            {isPending && <button className="btn btn-primary bg-[var(--text-primary)] hover:bg-black">Submit for Verification</button>}
+                            {isPending && (
+                              <button 
+                                className="btn btn-primary bg-[var(--text-primary)] hover:bg-black"
+                                onClick={() => handleBuilderClaim(milestone.index)}
+                              >
+                                Submit for Verification
+                              </button>
+                            )}
                           </>
                         )}
 
                         {/* Funder Actions */}
                         {userRole === 'funder' && (
                           <>
-                            {isClaimed && <button className="btn !bg-white !text-[var(--danger)] border border-[var(--danger)] hover:!bg-[var(--danger)] hover:!text-white transition-colors">Dispute Claim</button>}
+                            {isClaimed && (
+                              <button 
+                                className="btn !bg-white !text-[var(--danger)] border border-[var(--danger)] hover:!bg-[var(--danger)] hover:!text-white transition-colors"
+                                onClick={() => handleFunderDispute(milestone.index)}
+                              >
+                                Dispute Claim
+                              </button>
+                            )}
                             {(isClaimed || isVerified) && <button className="btn btn-secondary bg-[var(--surface)] hover:bg-[var(--border)]">View Proof</button>}
                             {isPending && <button className="btn btn-secondary bg-white">Verify Manually</button>}
                           </>
@@ -398,7 +642,7 @@ export default function EscrowDetailPage() {
             </h3>
             <div className="card p-0 overflow-hidden shadow-sm border-[var(--border)] sticky top-6">
               <div className="flex flex-col">
-                {escrow.activityLog.map((log, index) => (
+                {escrow.activityLog.map((log: any, index: number) => (
                   <div key={log.id} className="p-5 border-b border-[var(--border)] last:border-0 hover:bg-[var(--surface)] transition-colors flex items-start gap-4">
                     <div className="mt-0.5 shrink-0 w-8 h-8 rounded-full bg-white border border-[var(--border)] flex items-center justify-center shadow-sm">
                       {log.event.includes('Disputed') && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>}

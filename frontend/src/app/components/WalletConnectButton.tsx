@@ -2,6 +2,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useWallet } from "./WalletContext";
 
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+
 /* ── Deterministic blockie avatar ── */
 function Blockie({ address, size = 24 }: { address: string; size?: number }) {
   const colors = ["#1A56DB", "#3B82F6", "#60A5FA", "#1E429F", "#93C5FD", "#2563EB"];
@@ -58,7 +60,7 @@ function truncateAddress(addr: string) {
 
 /* ── WalletConnectButton ── */
 export default function WalletConnectButton() {
-  const { connected, address, connect, disconnect } = useWallet();
+  const { connected, address, disconnect } = useWallet();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -83,17 +85,22 @@ export default function WalletConnectButton() {
   /* ── Disconnected state ── */
   if (!connected) {
     return (
-      <button
-        className="btn btn-primary"
-        id="btn-connect-wallet"
-        onClick={connect}
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="2" y="6" width="20" height="12" rx="2" />
-          <path d="M16 12h.01" />
-        </svg>
-        Connect Wallet
-      </button>
+      <ConnectButton.Custom>
+        {({ openConnectModal }) => (
+          <button
+            className="btn btn-primary"
+            id="btn-connect-wallet"
+            onClick={openConnectModal}
+            type="button"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="6" width="20" height="12" rx="2" />
+              <path d="M16 12h.01" />
+            </svg>
+            Connect Wallet
+          </button>
+        )}
+      </ConnectButton.Custom>
     );
   }
 
@@ -140,13 +147,13 @@ export default function WalletConnectButton() {
           id="wallet-dropdown"
           style={{
             position: "absolute",
-            top: "calc(100% + 6px)",
+            top: "calc(100% + 8px)",
             right: 0,
             minWidth: 220,
-            background: "var(--surface-raised)",
-            border: "1px solid var(--border)",
-            borderRadius: "var(--radius-lg)",
-            boxShadow: "var(--shadow-elevated)",
+            background: "#FFFFFF",
+            border: "1px solid #E2E8F0",
+            borderRadius: "12px",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)",
             overflow: "hidden",
             zIndex: 100,
           }}
@@ -226,10 +233,12 @@ function DropdownItem({
 
   const hoverHandlers = {
     onMouseEnter: (e: React.MouseEvent<HTMLElement>) => {
-      e.currentTarget.style.background = "var(--surface)";
+      e.currentTarget.style.background = danger ? "#FEF2F2" : "#F8FAFC";
+      e.currentTarget.style.color = danger ? "#B91C1C" : "#0F172A";
     },
     onMouseLeave: (e: React.MouseEvent<HTMLElement>) => {
       e.currentTarget.style.background = "none";
+      e.currentTarget.style.color = danger ? "var(--danger)" : "var(--text-primary)";
     },
   };
 

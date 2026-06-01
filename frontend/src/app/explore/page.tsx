@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import EscrowCard from "../components/EscrowCard";
 import EmptyState from "../components/EmptyState";
 import { MilestoneType } from "../components/MilestoneTypeChip";
+import { usePublicClient } from "wagmi";
+import { FACTORY_ADDRESS, ESCROW_FACTORY_ABI, MILESTONE_ESCROW_ABI } from "../components/contracts";
 
 // Mock Data
 const MOCK_ESCROWS = [
@@ -79,16 +81,157 @@ const MOCK_ESCROWS = [
 
 const TABS = ["All", "Active", "Completed", "Disputed", "Expired"];
 const SORTS = ["Newest", "Most Funded", "Ending Soon"];
-const NETWORKS = ["All Chains", "Arbitrum One", "Robinhood Chain"];
+const NETWORKS = ["All Chains", "Arbitrum One", "Robinhood Chain", "Anvil Local"];
 
 export default function ExplorePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   const [activeSort, setActiveSort] = useState("Newest");
   const [activeNetwork, setActiveNetwork] = useState("All Chains");
+  const [escrows, setEscrows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const publicClient = usePublicClient();
+
+  useEffect(() => {
+    async function fetchEscrows() {
+      if (!publicClient) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        // Check if Factory contract is deployed
+        const bytecode = await publicClient.getBytecode({
+          address: FACTORY_ADDRESS as `0x${string}`,
+        });
+
+        if (!bytecode || bytecode === "0x") {
+          console.warn("Factory contract not deployed on this network. Using mock data.");
+          setEscrows([]);
+          setLoading(false);
+          return;
+        }
+
+        // 1. Get all escrow addresses
+        const addresses = (await publicClient.readContract({
+          address: FACTORY_ADDRESS as `0x${string}`,
+          abi: ESCROW_FACTORY_ABI,
+          functionName: "getAllEscrows",
+        })) as any[];
+
+        if (!addresses || addresses.length === 0) {
+          setEscrows([]);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Fetch details for each escrow in parallel
+        const escrowData = await Promise.all(
+          addresses.map(async (addr) => {
+            try {
+              const funder = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "funder",
+              });
+              const builder = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "builder",
+              });
+              const totalAmountRaw = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "totalAmount",
+              });
+              const statusRaw = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "status",
+              });
+
+              // Try/catch loop to fetch milestones
+              const milestones: any[] = [];
+              let i = 0;
+              while (true) {
+                try {
+                  const milestone = await publicClient.readContract({
+                    address: addr as `0x${string}`,
+                    abi: MILESTONE_ESCROW_ABI,
+                    functionName: "milestones",
+                    args: [BigInt(i)],
+                  });
+                  milestones.push(milestone);
+                  i++;
+                } catch (e) {
+                  break; // out of bounds
+                }
+              }
+
+              // Status mapping
+              const statusMap: Record<number, string> = {
+                0: "active",
+                1: "completed",
+                2: "cancelled",
+                3: "disputed",
+              };
+              const statusStr = statusMap[statusRaw as number] || "active";
+
+              // Count completed milestones
+              const completedCount = milestones.filter(
+                (m) => m[6] === 2 // Released is status 2
+              ).length;
+
+              // Verifier types mapping
+              const getMilestoneType = (verifierAddr: string): string => {
+                const lower = verifierAddr.toLowerCase();
+                if (lower === "0x5fbdb2315678afecb367f032d93f642f64180aa3") return "contract-deploy";
+                if (lower === "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512") return "deadline";
+                if (lower === "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0") return "tx-count";
+                if (lower === "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9") return "tvl";
+                return "deadline"; // fallback
+              };
+
+              const milestoneTypes = milestones.map((m) => getMilestoneType(m[3]));
+              const firstTitle = milestones[0]?.[0] || "Untitled Escrow";
+              const escrowTitle = milestones.length > 1 ? `${firstTitle} (Multi-Step)` : firstTitle;
+
+              return {
+                id: addr,
+                status: statusStr,
+                title: escrowTitle,
+                creatorAddress: funder,
+                amount: Number(totalAmountRaw) / 1e6, // USDC uses 6 decimals
+                completedMilestones: completedCount,
+                totalMilestones: milestones.length,
+                milestoneTypes: milestoneTypes,
+                network: "Anvil Local",
+              };
+            } catch (e) {
+              console.error("Error fetching details for escrow", addr, e);
+              return null;
+            }
+          })
+        );
+
+        const activeEscrows = escrowData.filter((e) => e !== null) as any[];
+        setEscrows(activeEscrows);
+      } catch (e) {
+        console.error("Failed to fetch escrows", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchEscrows();
+  }, [publicClient]);
+
+  // Merge with mock escrows if empty, to ensure the UI looks great for testing
+  const allDisplayEscrows = escrows.length > 0 ? escrows : MOCK_ESCROWS;
 
   // Filtering Logic
-  const filteredEscrows = MOCK_ESCROWS.filter((escrow) => {
+  const filteredEscrows = allDisplayEscrows.filter((escrow) => {
     // Tab Filter
     if (activeTab !== "All" && escrow.status.toLowerCase() !== activeTab.toLowerCase()) {
       return false;

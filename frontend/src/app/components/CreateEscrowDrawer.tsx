@@ -303,7 +303,7 @@ export default function CreateEscrowDrawer({ isOpen, onClose, onDeploy }: Create
 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontWeight: 500 }}>Total to Lock</span>
-                  <AmountDisplay amount={parseFloat(totalAmount) || 0} currency="USDC" showUsd={true} size="lg" />
+                  <AmountDisplay amount={parseFloat(totalAmount) || 0} token="USDC" size="lg" />
                 </div>
               </div>
 

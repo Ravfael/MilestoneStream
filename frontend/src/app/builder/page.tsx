@@ -6,6 +6,10 @@ import Footer from "../components/Footer";
 import AmountDisplay from "../components/AmountDisplay";
 import StatusBadge, { StatusType } from "../components/StatusBadge";
 import MilestoneTypeChip, { MilestoneType } from "../components/MilestoneTypeChip";
+import { useWallet } from "../components/WalletContext";
+import { useWriteContract, usePublicClient } from "wagmi";
+import { FACTORY_ADDRESS, ESCROW_FACTORY_ABI, MILESTONE_ESCROW_ABI } from "../components/contracts";
+import EmptyState from "../components/EmptyState";
 
 // --- Mock Data ---
 const MOCK_BUILDER_ESCROWS = [
@@ -17,9 +21,9 @@ const MOCK_BUILDER_ESCROWS = [
     receivedAmount: 5000,
     status: "active" as StatusType,
     milestones: [
-      { id: "m1", title: "Architecture Design", type: "deadline" as MilestoneType, condition: "Submit PDF by May 1st", amount: 5000, status: "claimed" },
-      { id: "m2", title: "Smart Contract Implementation", type: "contract-deploy" as MilestoneType, condition: "Deploy to 0x... on Arbitrum", amount: 5000, status: "claimable" },
-      { id: "m3", title: "Audit & Mainnet", type: "tx-count" as MilestoneType, condition: "100+ interactions on testnet", amount: 5000, status: "upcoming" }
+      { id: "m1", index: 0, title: "Architecture Design", type: "deadline" as MilestoneType, condition: "Submit PDF by May 1st", amount: 5000, status: "claimed" },
+      { id: "m2", index: 1, title: "Smart Contract Implementation", type: "contract-deploy" as MilestoneType, condition: "Deploy to 0x... on Arbitrum", amount: 5000, status: "claimable" },
+      { id: "m3", index: 2, title: "Audit & Mainnet", type: "tx-count" as MilestoneType, condition: "100+ interactions on testnet", amount: 5000, status: "upcoming" }
     ]
   },
   {
@@ -30,8 +34,8 @@ const MOCK_BUILDER_ESCROWS = [
     receivedAmount: 2500,
     status: "active" as StatusType,
     milestones: [
-      { id: "m4", title: "Frontend Scaffold", type: "deadline" as MilestoneType, condition: "Next.js repo initialized", amount: 2500, status: "claimed" },
-      { id: "m5", title: "Data Integration", type: "contract-deploy" as MilestoneType, condition: "Integrate Subgraph", amount: 2500, status: "pending" }
+      { id: "m4", index: 0, title: "Frontend Scaffold", type: "deadline" as MilestoneType, condition: "Next.js repo initialized", amount: 2500, status: "claimed" },
+      { id: "m5", index: 1, title: "Data Integration", type: "contract-deploy" as MilestoneType, condition: "Integrate Subgraph", amount: 2500, status: "pending" }
     ]
   },
   {
@@ -42,8 +46,8 @@ const MOCK_BUILDER_ESCROWS = [
     receivedAmount: 4000,
     status: "disputed" as StatusType,
     milestones: [
-      { id: "m6", title: "Core Contracts", type: "contract-deploy" as MilestoneType, condition: "ERC721 implementation", amount: 4000, status: "claimed" },
-      { id: "m7", title: "Royalty Engine", type: "tvl" as MilestoneType, condition: "$1k TVL on testnet", amount: 4500, status: "disputed" }
+      { id: "m6", index: 0, title: "Core Contracts", type: "contract-deploy" as MilestoneType, condition: "ERC721 implementation", amount: 4000, status: "claimed" },
+      { id: "m7", index: 1, title: "Royalty Engine", type: "tvl" as MilestoneType, condition: "$1k TVL on testnet", amount: 4500, status: "disputed" }
     ]
   }
 ];
@@ -86,6 +90,8 @@ function ClaimModal({
   escrow: any 
 }) {
   const [claimState, setClaimState] = useState<"idle" | "verifying" | "verified" | "claiming" | "success">("idle");
+  const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
 
   useEffect(() => {
     if (isOpen) {
@@ -95,17 +101,23 @@ function ClaimModal({
 
   if (!isOpen || !milestone) return null;
 
-  const handleClaim = () => {
+  const handleClaim = async () => {
+    if (!publicClient) return;
     setClaimState("verifying");
-    setTimeout(() => {
-      setClaimState("verified");
-      setTimeout(() => {
-        setClaimState("claiming");
-        setTimeout(() => {
-          setClaimState("success");
-        }, 2000);
-      }, 1500);
-    }, 2000);
+    try {
+      const hash = await writeContractAsync({
+        address: escrow.id as `0x${string}`,
+        abi: MILESTONE_ESCROW_ABI,
+        functionName: "claimMilestone",
+        args: [BigInt(milestone.index)],
+      });
+      setClaimState("claiming");
+      await publicClient.waitForTransactionReceipt({ hash });
+      setClaimState("success");
+    } catch (e) {
+      console.error("Failed to claim milestone", e);
+      setClaimState("idle");
+    }
   };
 
   return (
@@ -151,7 +163,7 @@ function ClaimModal({
             <div className="w-full h-px bg-[var(--border)] my-2" />
             <div className="text-sm text-[var(--text-secondary)]">Claim Amount</div>
             <div className="font-semibold text-[var(--success)] text-lg">
-              <AmountDisplay amount={milestone.amount} currency="USDC" />
+              <AmountDisplay amount={milestone.amount} token="USDC" />
             </div>
           </div>
 
@@ -196,15 +208,161 @@ function ClaimModal({
 
 // --- Main Page Component ---
 export default function BuilderDashboard() {
-  const [address] = useState("0x2b3C4D5e6F7890AbCdEf1234567890aBcDeF1234");
+  const { connected, address, connect } = useWallet();
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"escrows" | "history">("escrows");
-  const [escrows, setEscrows] = useState(MOCK_BUILDER_ESCROWS);
+  const [escrows, setEscrows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [claimModalData, setClaimModalData] = useState<{ isOpen: boolean; milestone: any; escrow: any }>({
     isOpen: false,
     milestone: null,
     escrow: null
   });
+
+  const publicClient = usePublicClient();
+
+  useEffect(() => {
+    async function fetchBuilderEscrows() {
+      if (!publicClient || !address) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        // Check if Factory contract is deployed
+        const bytecode = await publicClient.getBytecode({
+          address: FACTORY_ADDRESS as `0x${string}`,
+        });
+
+        if (!bytecode || bytecode === "0x") {
+          console.warn("Factory contract not deployed on this network. Using mock data.");
+          setEscrows([]);
+          setLoading(false);
+          return;
+        }
+
+        const addresses = (await publicClient.readContract({
+          address: FACTORY_ADDRESS as `0x${string}`,
+          abi: ESCROW_FACTORY_ABI,
+          functionName: "getEscrowsByBuilder",
+          args: [address as `0x${string}`],
+        })) as any[];
+
+        if (!addresses || addresses.length === 0) {
+          setEscrows([]);
+          setLoading(false);
+          return;
+        }
+
+        const escrowData = await Promise.all(
+          addresses.map(async (addr) => {
+            try {
+              const funder = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "funder",
+              });
+              const totalAmountRaw = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "totalAmount",
+              });
+              const releasedRaw = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "releasedAmount",
+              });
+              const statusRaw = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "status",
+              });
+
+              // Try/catch loop to fetch milestones
+              const milestonesList: any[] = [];
+              let i = 0;
+              while (true) {
+                try {
+                  const m = await publicClient.readContract({
+                    address: addr as `0x${string}`,
+                    abi: MILESTONE_ESCROW_ABI,
+                    functionName: "milestones",
+                    args: [BigInt(i)],
+                  });
+                  milestonesList.push(m);
+                  i++;
+                } catch (e) {
+                  break;
+                }
+              }
+
+              const statusMap: Record<number, string> = {
+                0: "active",
+                1: "completed",
+                2: "cancelled",
+                3: "disputed",
+              };
+              const statusStr = statusMap[statusRaw as number] || "active";
+
+              const getMilestoneType = (verifierAddr: string): string => {
+                const lower = verifierAddr.toLowerCase();
+                if (lower === "0x5fbdb2315678afecb367f032d93f642f64180aa3") return "contract-deploy";
+                if (lower === "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512") return "deadline";
+                if (lower === "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0") return "tx-count";
+                if (lower === "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9") return "tvl";
+                return "deadline"; // fallback
+              };
+
+              const firstTitle = milestonesList[0]?.[0] || "Untitled Escrow";
+              const escrowTitle = milestonesList.length > 1 ? `${firstTitle} (Multi-Step)` : firstTitle;
+
+              const milestonesFormatted = milestonesList.map((m, idx) => {
+                let milestoneUIStatus = "pending";
+                if (m[6] === 1) milestoneUIStatus = "claimed";
+                else if (m[6] === 2) milestoneUIStatus = "claimed";
+                else if (m[6] === 3) milestoneUIStatus = "disputed";
+                else if (m[6] === 4) milestoneUIStatus = "upcoming";
+                else if (m[6] === 0) milestoneUIStatus = "claimable";
+
+                return {
+                  index: idx,
+                  id: `m-${idx}`,
+                  title: m[0] || `Milestone ${idx + 1}`,
+                  type: getMilestoneType(m[3]) as MilestoneType,
+                  condition: m[1] || "Automated verification",
+                  amount: Number(m[2]) / 1e6,
+                  status: milestoneUIStatus,
+                };
+              });
+
+              return {
+                id: addr,
+                title: escrowTitle,
+                funderAddress: funder,
+                totalAmount: Number(totalAmountRaw) / 1e6,
+                receivedAmount: Number(releasedRaw) / 1e6,
+                status: statusStr as StatusType,
+                milestones: milestonesFormatted,
+              };
+            } catch (e) {
+              console.error("Error fetching builder escrow details", addr, e);
+              return null;
+            }
+          })
+        );
+
+        setEscrows(escrowData.filter((e) => e !== null) as any[]);
+      } catch (e) {
+        console.error("Failed to fetch builder escrows", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchBuilderEscrows();
+  }, [publicClient, address]);
+
+  const displayEscrows = escrows.length > 0 ? escrows : MOCK_BUILDER_ESCROWS;
 
   const handleCopyAddress = async () => {
     await navigator.clipboard.writeText(address);
@@ -217,18 +375,39 @@ export default function BuilderDashboard() {
   };
 
   // derived stats
-  const totalReceived = escrows.reduce((sum, e) => sum + e.receivedAmount, 0);
-  const activePrograms = escrows.filter(e => e.status === "active").length;
+  const totalReceived = displayEscrows.reduce((sum: number, e: any) => sum + (e.receivedAmount || 0), 0);
+  const activePrograms = displayEscrows.filter((e: any) => e.status === "active").length;
   
   let claimableCount = 0;
   let upcomingDeadlines = 0;
   
-  escrows.forEach(e => {
-    e.milestones.forEach(m => {
+  displayEscrows.forEach((e: any) => {
+    e.milestones.forEach((m: any) => {
       if (m.status === "claimable") claimableCount++;
       if (m.type === "deadline" && m.status === "upcoming") upcomingDeadlines++;
     });
   });
+
+  // Disconnected State
+  if (!connected) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <main className="flex-1 flex flex-col items-center justify-center p-6">
+          <EmptyState
+            title="Connect Your Wallet"
+            description="You need to connect your wallet to view and manage your developer grants and claim milestones."
+            variant="wallet"
+            action={{
+              label: "Connect Wallet",
+              onClick: connect
+            }}
+          />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--surface)]">
@@ -301,10 +480,8 @@ export default function BuilderDashboard() {
                   Claim All Eligible ({claimableCount})
                 </button>
               )}
-            </div>
-
-            <div className="grid grid-cols-1 gap-6">
-              {escrows.map((escrow) => (
+            </div>             <div className="grid grid-cols-1 gap-6">
+              {displayEscrows.map((escrow) => (
                 <div key={escrow.id} className="card bg-white p-6 md:p-8 flex flex-col md:flex-row gap-8">
                   {/* Left Side: Summary */}
                   <div className="w-full md:w-1/3 flex flex-col gap-6 border-b md:border-b-0 md:border-r border-[var(--border)] pb-6 md:pb-0 md:pr-8">
@@ -332,7 +509,7 @@ export default function BuilderDashboard() {
                   <div className="w-full md:w-2/3 flex flex-col">
                     <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-6">Milestone Timeline</h4>
                     <div className="flex flex-col relative before:absolute before:inset-y-0 before:left-3.5 before:w-px before:bg-[var(--border)]">
-                      {escrow.milestones.map((milestone, i) => {
+                      {escrow.milestones.map((milestone: any, i: number) => {
                         const isClaimed = milestone.status === 'claimed';
                         const isClaimable = milestone.status === 'claimable';
                         const isDisputed = milestone.status === 'disputed';
@@ -418,7 +595,7 @@ export default function BuilderDashboard() {
               ))}
             </div>
             
-            {escrows.length === 0 && (
+            {displayEscrows.length === 0 && (
               <EmptyState 
                 title="No Active Escrows" 
                 description="You don't have any active grants or bounties yet."

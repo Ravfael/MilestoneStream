@@ -1,4 +1,5 @@
 import React from "react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 interface EmptyStateProps {
   /** Title text */
@@ -86,13 +87,29 @@ export default function EmptyState({
             {action.label}
           </a>
         ) : (
-          <button
-            className="btn btn-primary"
-            onClick={action.onClick}
-            id={id ? `${id}-cta` : undefined}
-          >
-            {action.label}
-          </button>
+          variant === "wallet" || action.label.toLowerCase().includes("connect wallet") ? (
+            <ConnectButton.Custom>
+              {({ openConnectModal }) => (
+                <button
+                  className="btn btn-primary"
+                  onClick={openConnectModal}
+                  id={id ? `${id}-cta` : undefined}
+                  type="button"
+                >
+                  {action.label}
+                </button>
+              )}
+            </ConnectButton.Custom>
+          ) : (
+            <button
+              className="btn btn-primary"
+              onClick={action.onClick}
+              id={id ? `${id}-cta` : undefined}
+              type="button"
+            >
+              {action.label}
+            </button>
+          )
         )
       )}
     </div>

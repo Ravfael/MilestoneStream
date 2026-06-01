@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import StatusBadge from "../components/StatusBadge";
@@ -7,6 +7,10 @@ import AmountDisplay from "../components/AmountDisplay";
 import EmptyState from "../components/EmptyState";
 import TransactionPendingModal from "../components/TransactionPendingModal";
 import CreateEscrowDrawer from "../components/CreateEscrowDrawer";
+import { useWallet } from "../components/WalletContext";
+import { useWriteContract, usePublicClient } from "wagmi";
+import { parseEventLogs } from "viem";
+import { FACTORY_ADDRESS, MOCK_USDC_ADDRESS, ESCROW_FACTORY_ABI, MILESTONE_ESCROW_ABI, ERC20_ABI, VERIFIER_ADDRESSES, encodeVerifierParams } from "../components/contracts";
 
 // Mock Data
 const MOCK_ESCROWS = [
@@ -53,9 +57,10 @@ const MOCK_ESCROWS = [
 ];
 
 export default function FunderDashboard() {
-  const [isConnected, setIsConnected] = useState(true);
-  const [address] = useState("0x1a2B3c4D5e6F7890AbCdEf1234567890aBcDeF12");
+  const { connected, address, connect } = useWallet();
   const [copied, setCopied] = useState(false);
+  const [escrows, setEscrows] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Modals
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -64,24 +69,225 @@ export default function FunderDashboard() {
     state: "pending"
   });
 
+  const { writeContractAsync } = useWriteContract();
+  const publicClient = usePublicClient();
+
+  useEffect(() => {
+    async function fetchFunderEscrows() {
+      if (!publicClient || !address) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        // Check if Factory contract is deployed
+        const bytecode = await publicClient.getBytecode({
+          address: FACTORY_ADDRESS as `0x${string}`,
+        });
+
+        if (!bytecode || bytecode === "0x") {
+          console.warn("Factory contract not deployed on this network. Using mock data.");
+          setEscrows([]);
+          setLoading(false);
+          return;
+        }
+
+        const addresses = (await publicClient.readContract({
+          address: FACTORY_ADDRESS as `0x${string}`,
+          abi: ESCROW_FACTORY_ABI,
+          functionName: "getEscrowsByFunder",
+          args: [address as `0x${string}`],
+        })) as any[];
+
+        if (!addresses || addresses.length === 0) {
+          setEscrows([]);
+          setLoading(false);
+          return;
+        }
+
+        const escrowData = await Promise.all(
+          addresses.map(async (addr) => {
+            try {
+              const builder = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "builder",
+              });
+              const totalAmountRaw = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "totalAmount",
+              });
+              const releasedRaw = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "releasedAmount",
+              });
+              const statusRaw = await publicClient.readContract({
+                address: addr as `0x${string}`,
+                abi: MILESTONE_ESCROW_ABI,
+                functionName: "status",
+              });
+
+              // Try/catch loop to fetch milestones
+              const milestones: any[] = [];
+              let i = 0;
+              while (true) {
+                try {
+                  const milestone = await publicClient.readContract({
+                    address: addr as `0x${string}`,
+                    abi: MILESTONE_ESCROW_ABI,
+                    functionName: "milestones",
+                    args: [BigInt(i)],
+                  });
+                  milestones.push(milestone);
+                  i++;
+                } catch (e) {
+                  break;
+                }
+              }
+
+              const statusMap: Record<number, string> = {
+                0: "active",
+                1: "completed",
+                2: "cancelled",
+                3: "disputed",
+              };
+              const statusStr = statusMap[statusRaw as number] || "active";
+
+              const completedCount = milestones.filter(
+                (m) => m[6] === 2
+              ).length;
+
+              const firstTitle = milestones[0]?.[0] || "Untitled Escrow";
+              const escrowTitle = milestones.length > 1 ? `${firstTitle} (Multi-Step)` : firstTitle;
+
+              return {
+                id: addr,
+                name: escrowTitle,
+                status: statusStr,
+                totalAmount: Number(totalAmountRaw) / 1e6,
+                released: Number(releasedRaw) / 1e6,
+                milestonesTotal: milestones.length,
+                milestonesCompleted: completedCount,
+                created: "2026-06-01",
+              };
+            } catch (e) {
+              console.error("Error fetching funder escrow", addr, e);
+              return null;
+            }
+          })
+        );
+
+        setEscrows(escrowData.filter((e) => e !== null) as any[]);
+      } catch (e) {
+        console.error("Failed to fetch funder escrows", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchFunderEscrows();
+  }, [publicClient, address]);
+
+  const displayEscrows = escrows.length > 0 ? escrows : MOCK_ESCROWS;
+
   const handleCopyAddress = async () => {
     await navigator.clipboard.writeText(address);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDeployEscrow = (data: any) => {
+  const handleDeployEscrow = async (data: any) => {
     setIsDrawerOpen(false);
     setTxModalState({ isOpen: true, state: "pending" });
     
-    // Simulate transaction
-    setTimeout(() => {
+    try {
+      if (!publicClient) throw new Error("Public client not available");
+
+      // 1. Format the milestones for the contract
+      const formattedMilestones = data.milestones.map((m: any) => {
+        const verifierAddr = VERIFIER_ADDRESSES[m.type] || VERIFIER_ADDRESSES["deadline"];
+        const verifierParams = encodeVerifierParams(m.type, m.params, m.deadline);
+        const amountRaw = BigInt(Math.floor(parseFloat(m.amount) * 1e6)); // USDC uses 6 decimals
+        const deadlineTimestamp = m.deadline ? BigInt(Math.floor(new Date(m.deadline).getTime() / 1000)) : BigInt(0);
+
+        return {
+          title: m.description || "Milestone",
+          description: m.description || "No description provided",
+          amount: amountRaw,
+          verifier: verifierAddr as `0x${string}`,
+          verifierParams: verifierParams,
+          deadline: deadlineTimestamp,
+          status: 0, // Pending
+          isOptimistic: m.type === "deadline",
+          claimedAt: BigInt(0),
+        };
+      });
+
+      const totalAmountRaw = BigInt(Math.floor(parseFloat(data.totalAmount) * 1e6));
+
+      // 2. Call createEscrow on Factory
+      const deployHash = await writeContractAsync({
+        address: FACTORY_ADDRESS as `0x${string}`,
+        abi: ESCROW_FACTORY_ABI,
+        functionName: "createEscrow",
+        args: [
+          data.builderWallet as `0x${string}`,
+          MOCK_USDC_ADDRESS as `0x${string}`,
+          formattedMilestones,
+        ],
+      });
+
+      const deployReceipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
+      
+      const logs = parseEventLogs({
+        abi: ESCROW_FACTORY_ABI,
+        eventName: "EscrowDeployed",
+        logs: deployReceipt.logs,
+      });
+
+      const newEscrowAddress = (logs[0] as any)?.args?.escrow;
+      if (!newEscrowAddress) throw new Error("Escrow address not found in event logs");
+
+      // 3. Approve MockUSDC to transfer the total amount to the new escrow address
+      const approveHash = await writeContractAsync({
+        address: MOCK_USDC_ADDRESS as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [newEscrowAddress, totalAmountRaw],
+      });
+
+      await publicClient.waitForTransactionReceipt({ hash: approveHash });
+
+      // 4. Call lockFunds on the new escrow
+      const lockHash = await writeContractAsync({
+        address: newEscrowAddress,
+        abi: MILESTONE_ESCROW_ABI,
+        functionName: "lockFunds",
+        args: [totalAmountRaw],
+      });
+
+      await publicClient.waitForTransactionReceipt({ hash: lockHash });
+
       setTxModalState({ isOpen: true, state: "confirmed" });
-    }, 3000);
+      
+      // Refresh list
+      const addresses = await publicClient.readContract({
+        address: FACTORY_ADDRESS as `0x${string}`,
+        abi: ESCROW_FACTORY_ABI,
+        functionName: "getEscrowsByFunder",
+        args: [address as `0x${string}`],
+      });
+      // Simple reload or wait for next trigger
+    } catch (e) {
+      console.error("Failed to deploy and fund escrow", e);
+      setTxModalState({ isOpen: true, state: "error" });
+    }
   };
 
   // Disconnected State
-  if (!isConnected) {
+  if (!connected) {
     return (
       <div className="min-h-screen flex flex-col">
         <Navbar />
@@ -92,7 +298,7 @@ export default function FunderDashboard() {
             variant="wallet"
             action={{
               label: "Connect Wallet",
-              onClick: () => setIsConnected(true)
+              onClick: connect
             }}
           />
         </main>
@@ -100,6 +306,7 @@ export default function FunderDashboard() {
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen flex flex-col bg-[var(--surface)]">
@@ -168,14 +375,14 @@ export default function FunderDashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white">
-                {MOCK_ESCROWS.map((escrow) => {
+                {displayEscrows.map((escrow) => {
                   const progressPercent = (escrow.milestonesCompleted / escrow.milestonesTotal) * 100;
                   return (
                     <tr key={escrow.id} className="border-b border-[var(--border)] hover:bg-[var(--surface)] transition-colors">
                       <td className="p-4 font-medium text-[var(--text-primary)]">{escrow.name}</td>
                       <td className="p-4"><StatusBadge status={escrow.status as any} /></td>
                       <td className="p-4 text-right">
-                        <AmountDisplay amount={escrow.totalAmount} currency="USDC" />
+                        <AmountDisplay amount={escrow.totalAmount} token="USDC" />
                         <div className="text-xs text-[var(--text-muted)] mt-1">
                           {escrow.released} USDC released
                         </div>
@@ -214,7 +421,7 @@ export default function FunderDashboard() {
             </table>
           </div>
           
-          {MOCK_ESCROWS.length === 0 && (
+          {displayEscrows.length === 0 && (
             <div className="py-12 bg-white">
               <EmptyState
                 title="No Escrows Found"
@@ -245,14 +452,6 @@ export default function FunderDashboard() {
         onClose={() => setTxModalState({ ...txModalState, isOpen: false })}
         state={txModalState.state}
       />
-      
-      {/* Dev Toggle for state */}
-      <button 
-        onClick={() => setIsConnected(!isConnected)}
-        style={{ position: "fixed", bottom: 16, right: 16, padding: "8px 12px", background: "black", color: "white", borderRadius: 8, fontSize: 12, zIndex: 9999, opacity: 0.5 }}
-      >
-        Toggle Connection
-      </button>
     </div>
   );
 }
