@@ -9,6 +9,10 @@ export default function HeroSection() {
           {/* Left content */}
           <div className="flex flex-col items-start">
 
+            <p className="animate-fade-in-up delay-300 text-sm font-semibold tracking-wide" style={{ color: "var(--text-muted)" }}>
+              hi
+            </p>
+
             {/* Headline */}
             <h1
               className="animate-fade-in-up delay-400 text-4xl md:text-5xl lg:text-[3.25rem] font-bold tracking-tight"
