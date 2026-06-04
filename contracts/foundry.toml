@@ -9,12 +9,9 @@ via_ir = false
 fs_permissions = [{ access = "read-write", path = "./deployments" }]
 
 [rpc_endpoints]
-arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL}"
-arbitrum_one = "${ARBITRUM_ONE_RPC_URL}"
-robinhood_chain = "${ROBINHOOD_CHAIN_RPC_URL}"
+eth_sepolia = "${ETH_SEPOLIA_RPC_URL}"
 
 [etherscan]
-arbitrum_sepolia = { key = "${ARBISCAN_API_KEY}", url = "https://api-sepolia.arbiscan.io/api" }
-arbitrum_one = { key = "${ARBISCAN_API_KEY}", url = "https://api.arbiscan.io/api" }
+eth_sepolia = { key = "${ETHERSCAN_API_KEY}", url = "https://api-sepolia.etherscan.io/api", chain = 11155111 }
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options

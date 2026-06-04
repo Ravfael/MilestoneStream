@@ -26,8 +26,8 @@ contract DeployScript is Script {
 
         // Deploy MockUSDC if not mainnet
         address usdcAddress;
-        if (block.chainid != 42161) {
-            // Arbitrum mainnet
+        if (block.chainid != 1) {
+            // Skip MockUSDC only on Ethereum mainnet
             MockUSDC mockUSDC = new MockUSDC();
             usdcAddress = address(mockUSDC);
         }
@@ -43,20 +43,19 @@ contract DeployScript is Script {
             console2.log("MockUSDC deployed at:", usdcAddress);
         }
 
-        // Ideally output this to deployments/{chainId}.json
-        string memory json = "{}";
-        json = vm.serializeAddress(json, "ContractDeployedVerifier", address(cdVerifier));
-        json = vm.serializeAddress(json, "TimestampVerifier", address(tsVerifier));
-        json = vm.serializeAddress(json, "TxCountVerifier", address(txVerifier));
-        json = vm.serializeAddress(json, "TVLVerifier", address(tvlVerifier));
-        json = vm.serializeAddress(json, "EscrowFactory", address(factory));
-        if (usdcAddress != address(0)) {
-            json = vm.serializeAddress(json, "MockUSDC", usdcAddress);
-        }
+        // Use a consistent object key so all contracts get saved
+        string memory obj = "deployments";
+        vm.serializeAddress(obj, "ContractDeployedVerifier", address(cdVerifier));
+        vm.serializeAddress(obj, "TimestampVerifier", address(tsVerifier));
+        vm.serializeAddress(obj, "TxCountVerifier", address(txVerifier));
+        vm.serializeAddress(obj, "TVLVerifier", address(tvlVerifier));
+        vm.serializeAddress(obj, "EscrowFactory", address(factory));
 
+        // Final serialization includes the MockUSDC address
+        string memory finalJson = vm.serializeAddress(obj, "MockUSDC", usdcAddress);
         string memory dirPath = string.concat(vm.projectRoot(), "/deployments");
         vm.createDir(dirPath, true);
         string memory filePath = string.concat(dirPath, "/", vm.toString(block.chainid), ".json");
-        vm.writeJson(json, filePath);
+        vm.writeJson(finalJson, filePath);
     }
 }

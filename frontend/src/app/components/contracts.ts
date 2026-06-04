@@ -1,14 +1,14 @@
 import { encodeAbiParameters, parseAbiParameters } from "viem";
 
-export const FACTORY_ADDRESS = "0xdc64a140aa3e981100a9beca4e685f962f0cf6c9";
-export const MOCK_USDC_ADDRESS = "0x5fc8d32690cc91d4c39d9d3abcbd16989f875707";
+export const FACTORY_ADDRESS = "0x250ddBdd50c959d5b28a3191Ba8B9354E68F96bA";
+export const MOCK_USDC_ADDRESS = "0xA3FdF9aAe49636F1a8cdf3e1c6Ca636911043847";
 
 export const VERIFIER_ADDRESSES: Record<string, string> = {
-  "contract-deploy": "0x5fbdb2315678afecb367f032d93f642f64180aa3",
-  "deadline": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512",
-  "tx-count": "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0",
-  "tvl": "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9",
-  "holders": "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512", // Fallback to Timestamp or similar
+  "contract-deploy": "0x05978bE7fC98a0D9Aa7973BF0f58c4E8B5E8105F",
+  "deadline": "0x87F4DE4c3620FE04117c8623e7983C2BBBdD15c2",
+  "tx-count": "0x8cCC7855Ec994e05e99ed3a7e2667263FA616d4B",
+  "tvl": "0xB68025370fB44598B75A2D7008aB172eEe53fc7a",
+  "holders": "0x87F4DE4c3620FE04117c8623e7983C2BBBdD15c2", // Fallback to Timestamp or similar
 };
 
 export const ESCROW_FACTORY_ABI = [

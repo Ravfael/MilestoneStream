@@ -10,7 +10,7 @@ import { WalletProvider } from "./WalletContext";
 const config = getDefaultConfig({
   appName: "MilestoneStream",
   projectId: "a58da5c185b9d608a1b60448201526d9", // 32-character hex placeholder
-  chains: [arbitrumSepolia],
+  chains: [sepolia],
   ssr: true,
 });
 
