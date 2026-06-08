@@ -8,7 +8,7 @@ import StatusBadge, { StatusType } from "../components/StatusBadge";
 import MilestoneTypeChip, { MilestoneType } from "../components/MilestoneTypeChip";
 import { useWallet } from "../components/WalletContext";
 import { useWriteContract, usePublicClient } from "wagmi";
-import { FACTORY_ADDRESS, ESCROW_FACTORY_ABI, MILESTONE_ESCROW_ABI } from "../components/contracts";
+import { FACTORY_ADDRESS, ESCROW_FACTORY_ABI, MILESTONE_ESCROW_ABI, getContractEventsChunked } from "../components/contracts";
 import EmptyState from "../components/EmptyState";
 
 // --- Mock Data ---
@@ -212,6 +212,7 @@ export default function BuilderDashboard() {
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"escrows" | "history">("escrows");
   const [escrows, setEscrows] = useState<any[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [claimModalData, setClaimModalData] = useState<{ isOpen: boolean; milestone: any; escrow: any }>({
     isOpen: false,
@@ -220,6 +221,8 @@ export default function BuilderDashboard() {
   });
 
   const publicClient = usePublicClient();
+  const explorerUrl = publicClient?.chain?.blockExplorers?.default?.url || "https://sepolia.etherscan.io";
+  const explorerName = publicClient?.chain?.blockExplorers?.default?.name || "Etherscan";
 
   useEffect(() => {
     async function fetchBuilderEscrows() {
@@ -254,8 +257,11 @@ export default function BuilderDashboard() {
           return;
         }
 
+        // Reverse the array to show the latest deployed escrow first
+        const reversedAddresses = [...addresses].reverse();
+
         const escrowData = await Promise.all(
-          addresses.map(async (addr) => {
+          reversedAddresses.map(async (addr) => {
             try {
               const funder = await publicClient.readContract({
                 address: addr as `0x${string}`,
@@ -302,7 +308,22 @@ export default function BuilderDashboard() {
                 2: "cancelled",
                 3: "disputed",
               };
-              const statusStr = statusMap[statusRaw as number] || "active";
+              let statusStr = statusMap[statusRaw as number] || "active";
+
+              const now = Math.floor(Date.now() / 1000);
+              const pendingMilestones = milestonesList.filter(m => {
+                const status = Array.isArray(m) ? m[6] : m.status;
+                return Number(status) !== 2;
+              });
+
+              const allPendingExpired = pendingMilestones.length > 0 && pendingMilestones.every(m => {
+                const deadline = Number(Array.isArray(m) ? m[5] : m.deadline);
+                return deadline > 0 && now > deadline;
+              });
+
+              if (statusStr === "active" && allPendingExpired) {
+                statusStr = "expired";
+              }
 
               const getMilestoneType = (verifierAddr: string): string => {
                 const lower = verifierAddr.toLowerCase();
@@ -318,25 +339,60 @@ export default function BuilderDashboard() {
 
               const milestonesFormatted = milestonesList.map((m, idx) => {
                 let milestoneUIStatus = "pending";
-                const deadline = Number(m[5]);
-                const isExpired = deadline > 0 && Math.floor(Date.now() / 1000) > deadline;
+                
+                const titleVal = Array.isArray(m) ? m[0] : m.title;
+                const conditionVal = Array.isArray(m) ? m[1] : m.description;
+                const amountVal = Number(Array.isArray(m) ? m[2] : m.amount) / 1e6;
+                const verifierVal = Array.isArray(m) ? m[3] : m.verifier;
+                const deadlineVal = Number(Array.isArray(m) ? m[5] : m.deadline);
+                const statusVal = Number(Array.isArray(m) ? m[6] : m.status);
 
-                if (m[6] === 1) milestoneUIStatus = "claimed";
-                else if (m[6] === 2) milestoneUIStatus = "claimed";
-                else if (m[6] === 3) milestoneUIStatus = "disputed";
-                else if (isExpired || m[6] === 4) milestoneUIStatus = "expired";
-                else if (m[6] === 0) milestoneUIStatus = "claimable";
+                const isExpired = deadlineVal > 0 && Math.floor(Date.now() / 1000) > deadlineVal;
+
+                if (statusVal === 1) milestoneUIStatus = "claimed";
+                else if (statusVal === 2) milestoneUIStatus = "claimed";
+                else if (statusVal === 3) milestoneUIStatus = "disputed";
+                else if (isExpired || statusVal === 4) milestoneUIStatus = "expired";
+                else if (statusVal === 0) milestoneUIStatus = "claimable";
 
                 return {
                   index: idx,
                   id: `m-${idx}`,
-                  title: m[0] || `Milestone ${idx + 1}`,
-                  type: getMilestoneType(m[3]) as MilestoneType,
-                  condition: m[1] || "Automated verification",
-                  amount: Number(m[2]) / 1e6,
+                  title: titleVal || `Milestone ${idx + 1}`,
+                  type: getMilestoneType(verifierVal) as MilestoneType,
+                  condition: conditionVal || "Automated verification",
+                  amount: amountVal,
                   status: milestoneUIStatus,
                 };
               });
+
+              // Fetch MilestoneReleased events for this escrow
+              let releaseEvents: any[] = [];
+              try {
+                const logs = await getContractEventsChunked(publicClient, {
+                  address: addr as `0x${string}`,
+                  abi: MILESTONE_ESCROW_ABI,
+                });
+
+                const releaseLogs = logs.filter((log: any) => log.eventName === "MilestoneReleased");
+
+                releaseEvents = releaseLogs.map((log: any) => {
+                  const mIdx = Number(log.args.milestoneIndex);
+                  const mTitle = milestonesFormatted[mIdx]?.title || `Milestone ${mIdx + 1}`;
+                  return {
+                    id: `${log.transactionHash}-${mIdx}`,
+                    date: `Block #${log.blockNumber}`,
+                    escrow: escrowTitle,
+                    milestone: mTitle,
+                    amount: Number(log.args.amount) / 1e6,
+                    txHash: `${log.transactionHash.slice(0, 10)}...`,
+                    fullHash: log.transactionHash,
+                    blockNumber: log.blockNumber,
+                  };
+                });
+              } catch (err) {
+                console.error("Failed to fetch release events for", addr, err);
+              }
 
               return {
                 id: addr,
@@ -346,6 +402,7 @@ export default function BuilderDashboard() {
                 receivedAmount: Number(releasedRaw) / 1e6,
                 status: statusStr as StatusType,
                 milestones: milestonesFormatted,
+                releases: releaseEvents,
               };
             } catch (e) {
               console.error("Error fetching builder escrow details", addr, e);
@@ -354,7 +411,19 @@ export default function BuilderDashboard() {
           })
         );
 
-        setEscrows(escrowData.filter((e) => e !== null) as any[]);
+        const validEscrows = escrowData.filter((e) => e !== null) as any[];
+        setEscrows(validEscrows);
+
+        // Aggregate and sort release events for all builder escrows
+        const aggregatedPayments = validEscrows.reduce((acc: any[], escrow: any) => {
+          if (escrow.releases) {
+            acc.push(...escrow.releases);
+          }
+          return acc;
+        }, []);
+
+        aggregatedPayments.sort((a, b) => Number(b.blockNumber - a.blockNumber));
+        setPaymentHistory(aggregatedPayments);
       } catch (e) {
         console.error("Failed to fetch builder escrows", e);
       } finally {
@@ -366,6 +435,7 @@ export default function BuilderDashboard() {
   }, [publicClient, address]);
 
   const displayEscrows = escrows.length > 0 ? escrows : MOCK_BUILDER_ESCROWS;
+  const displayPayments = escrows.length > 0 ? paymentHistory : MOCK_PAYMENT_HISTORY;
 
   const handleCopyAddress = async () => {
     await navigator.clipboard.writeText(address);
@@ -406,6 +476,22 @@ export default function BuilderDashboard() {
               onClick: connect
             }}
           />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // Loading State
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[var(--surface)]">
+        <Navbar />
+        <main className="flex-1 flex flex-col items-center justify-center p-6">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 rounded-full border-4 border-[var(--border)] border-t-[var(--primary)] animate-spin" />
+            <p className="text-[var(--text-secondary)] font-medium">Loading escrows from blockchain...</p>
+          </div>
         </main>
         <Footer />
       </div>
@@ -636,7 +722,7 @@ export default function BuilderDashboard() {
                   </tr>
                 </thead>
                 <tbody className="bg-white">
-                  {MOCK_PAYMENT_HISTORY.map((tx) => (
+                  {displayPayments.map((tx) => (
                     <tr key={tx.id} className="border-b border-[var(--border)] hover:bg-[var(--surface)] transition-colors">
                       <td className="p-4 text-sm text-[var(--text-secondary)]">{tx.date}</td>
                       <td className="p-4 font-medium text-[var(--text-primary)]">{tx.escrow}</td>
@@ -646,10 +732,11 @@ export default function BuilderDashboard() {
                       </td>
                       <td className="p-4">
                         <a 
-                          href={`https://arbiscan.io/tx/${tx.fullHash}`} 
+                          href={`${explorerUrl}/tx/${tx.fullHash}`} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="flex items-center gap-1.5 text-sm mono text-[var(--primary)] hover:text-[var(--primary-hover)] hover:underline"
+                          title={`View on ${explorerName}`}
                         >
                           {tx.txHash}
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
@@ -657,7 +744,7 @@ export default function BuilderDashboard() {
                       </td>
                     </tr>
                   ))}
-                  {MOCK_PAYMENT_HISTORY.length === 0 && (
+                  {displayPayments.length === 0 && (
                     <tr>
                       <td colSpan={5} className="p-8 text-center text-[var(--text-muted)]">
                         No payment history found.

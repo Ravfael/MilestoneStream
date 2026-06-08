@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { usePublicClient } from "wagmi";
 
 type TxModalState = "pending" | "confirmed" | "error";
 
@@ -54,7 +55,10 @@ export default function TransactionPendingModal({
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const arbiscanUrl = `https://arbiscan.io/tx/${txHash}`;
+  const publicClient = usePublicClient();
+  const explorerUrl = publicClient?.chain?.blockExplorers?.default?.url || "https://sepolia.etherscan.io";
+  const explorerName = publicClient?.chain?.blockExplorers?.default?.name || "Etherscan";
+  const explorerTxUrl = `${explorerUrl}/tx/${txHash}`;
 
   return (
     <div
@@ -162,19 +166,19 @@ export default function TransactionPendingModal({
               )}
             </button>
 
-            {/* Arbiscan link */}
+            {/* Explorer link */}
             <a
-              href={arbiscanUrl}
+              href={explorerTxUrl}
               target="_blank"
               rel="noopener noreferrer"
-              id="tx-arbiscan-link"
+              id="tx-explorer-link"
               style={{
                 color: "var(--text-muted)",
                 display: "flex",
                 padding: 4,
                 transition: "color 150ms ease",
               }}
-              title="View on Arbiscan"
+              title={`View on ${explorerName}`}
               onMouseEnter={(e) => { e.currentTarget.style.color = "var(--primary)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; }}
             >
@@ -197,7 +201,7 @@ export default function TransactionPendingModal({
           }}
         >
           {state === "pending" && "Waiting for confirmation..."}
-          {state === "confirmed" && "Your transaction has been confirmed on the Arbitrum network."}
+          {state === "confirmed" && `Your transaction has been confirmed on the ${publicClient?.chain?.name || "active"} network.`}
           {state === "error" && (errorMessage || "Something went wrong. Please try again.")}
         </p>
 

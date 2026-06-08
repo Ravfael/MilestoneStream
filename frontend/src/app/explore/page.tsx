@@ -216,7 +216,7 @@ export default function ExplorePage() {
         );
 
         const activeEscrows = escrowData.filter((e) => e !== null) as any[];
-        setEscrows(activeEscrows);
+        setEscrows(activeEscrows.reverse());
       } catch (e) {
         console.error("Failed to fetch escrows", e);
       } finally {
@@ -352,7 +352,32 @@ export default function ExplorePage() {
 
         {/* Escrow Cards Grid */}
         <section className="py-12 max-w-7xl mx-auto px-6 min-h-[500px]">
-          {filteredEscrows.length > 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="bg-[var(--surface-raised)] border border-[var(--border)] rounded-2xl p-6 h-[280px] animate-pulse flex flex-col shadow-sm">
+                  <div>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="h-6 bg-[var(--border)] rounded-md w-1/3 opacity-40"></div>
+                      <div className="h-6 bg-[var(--border)] rounded-full w-20 opacity-40"></div>
+                    </div>
+                    <div className="h-7 bg-[var(--border)] rounded-md w-3/4 mb-4 opacity-40"></div>
+                    <div className="h-4 bg-[var(--border)] rounded-md w-full mb-2 opacity-40"></div>
+                    <div className="h-4 bg-[var(--border)] rounded-md w-5/6 opacity-40"></div>
+                  </div>
+                  <div className="pt-4 mt-auto">
+                    <div className="flex justify-between items-end">
+                      <div className="flex flex-col gap-2">
+                        <div className="h-4 bg-[var(--border)] rounded-md w-16 opacity-40"></div>
+                        <div className="h-6 bg-[var(--border)] rounded-md w-24 opacity-40"></div>
+                      </div>
+                      <div className="h-10 bg-[var(--border)] rounded-lg w-28 opacity-40"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredEscrows.length > 0 ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in-up">
                 {filteredEscrows.map((escrow) => (

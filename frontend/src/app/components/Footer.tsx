@@ -49,7 +49,7 @@ export default function Footer() {
                 { label: "How It Works", href: "/#how-it-works" },
                 { label: "Milestone Types", href: "/#milestone-types" },
                 { label: "Use Cases", href: "/#use-cases" },
-                { label: "Create Escrow", href: "/create" },
+                { label: "Create Escrow", href: "/funder?create=true" },
               ].map((l) => (
                 <li key={l.label}>
                   <a

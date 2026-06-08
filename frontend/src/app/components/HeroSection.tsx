@@ -29,13 +29,13 @@ export default function HeroSection() {
 
             {/* CTAs */}
             <div className="animate-fade-in-up delay-300 mt-10 flex flex-col gap-4 sm:flex-row">
-              <button className="btn btn-primary btn-lg" id="btn-create-escrow">
+              <a href="/funder?create=true" className="btn btn-primary btn-lg" id="btn-create-escrow">
                 Create Escrow
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="5" y1="12" x2="19" y2="12" />
                   <polyline points="12 5 19 12 12 19" />
                 </svg>
-              </button>
+              </a>
               <a href="/explore" className="btn btn-secondary btn-lg" id="btn-explore-escrows">
                 Explore Escrows
               </a>

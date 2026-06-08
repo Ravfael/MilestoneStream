@@ -2,6 +2,7 @@ import { encodeAbiParameters, parseAbiParameters } from "viem";
 
 export const FACTORY_ADDRESS = "0x250ddBdd50c959d5b28a3191Ba8B9354E68F96bA";
 export const MOCK_USDC_ADDRESS = "0xA3FdF9aAe49636F1a8cdf3e1c6Ca636911043847";
+export const DEPLOYMENT_BLOCK = BigInt(10985560);
 
 export const VERIFIER_ADDRESSES: Record<string, string> = {
   "contract-deploy": "0x05978bE7fC98a0D9Aa7973BF0f58c4E8B5E8105F",
@@ -195,6 +196,58 @@ export const MILESTONE_ESCROW_ABI = [
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": false, "name": "funder", "type": "address" },
+      { "indexed": false, "name": "builder", "type": "address" },
+      { "indexed": false, "name": "totalAmount", "type": "uint256" }
+    ],
+    "name": "EscrowCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "milestoneIndex", "type": "uint256" },
+      { "indexed": false, "name": "builder", "type": "address" }
+    ],
+    "name": "MilestoneClaimed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "milestoneIndex", "type": "uint256" },
+      { "indexed": false, "name": "amount", "type": "uint256" }
+    ],
+    "name": "MilestoneReleased",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "milestoneIndex", "type": "uint256" },
+      { "indexed": false, "name": "funder", "type": "address" }
+    ],
+    "name": "MilestoneDisputed",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "milestoneIndex", "type": "uint256" },
+      { "indexed": false, "name": "builderWins", "type": "bool" }
+    ],
+    "name": "DisputeResolved",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [],
+    "name": "EscrowCancelled",
+    "type": "event"
   }
 ] as const;
 
@@ -283,4 +336,80 @@ export function encodeVerifierParams(type: string, paramsStr: string, deadlineSt
   }
   // Default empty bytes
   return "0x";
+}
+
+export async function getContractEventsChunked(
+  publicClient: any,
+  params: {
+    address: `0x${string}`;
+    abi: any;
+    fromBlock?: bigint;
+    eventName?: string;
+  }
+) {
+  let chainId = 11155111; // default to Sepolia
+  try {
+    chainId = publicClient.chain?.id ?? (await publicClient.getChainId());
+  } catch (e) {
+    console.warn("Failed to get chain ID, defaulting to Sepolia", e);
+  }
+
+  const isSepolia = chainId === 11155111;
+  const deploymentBlock = isSepolia ? DEPLOYMENT_BLOCK : BigInt(0);
+  const startBlock = params.fromBlock ?? deploymentBlock;
+
+  let latestBlock = startBlock;
+  try {
+    latestBlock = await publicClient.getBlockNumber();
+  } catch (e) {
+    console.error("Failed to fetch latest block number", e);
+  }
+
+  if (latestBlock < startBlock) {
+    latestBlock = startBlock;
+  }
+
+  const chunkSize = BigInt(950); // Stay safely under 1,000 RPC block limit for Thirdweb
+  const allLogs: any[] = [];
+  let currentTo = latestBlock;
+
+  while (currentTo >= startBlock) {
+    let currentFrom = currentTo - chunkSize + BigInt(1);
+    if (currentFrom < startBlock) {
+      currentFrom = startBlock;
+    }
+
+    try {
+      const logs = await publicClient.getContractEvents({
+        address: params.address,
+        abi: params.abi,
+        eventName: params.eventName,
+        fromBlock: currentFrom,
+        toBlock: currentTo,
+      });
+
+      allLogs.push(...logs);
+
+      // If we find the birth event of the escrow, we don't need to search older blocks
+      const hasCreatedEvent = logs.some((log: any) => log.eventName === "EscrowCreated");
+      if (hasCreatedEvent) {
+        break;
+      }
+    } catch (error) {
+      console.error(`Error fetching logs for range ${currentFrom}-${currentTo}:`, error);
+      if (allLogs.length > 0) {
+        break;
+      }
+      throw error;
+    }
+
+    currentTo = currentFrom - BigInt(1);
+  }
+
+  return allLogs.sort((a, b) => {
+    if (a.blockNumber === b.blockNumber) {
+      return Number(a.transactionIndex ?? 0) - Number(b.transactionIndex ?? 0);
+    }
+    return Number(a.blockNumber) - Number(b.blockNumber);
+  });
 }

@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import StatusBadge from "../components/StatusBadge";
@@ -61,9 +62,22 @@ export default function FunderDashboard() {
   const [copied, setCopied] = useState(false);
   const [escrows, setEscrows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("All Statuses");
 
   // Modals
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("create") === "true") {
+        setIsDrawerOpen(true);
+        // clean up the URL search params so reloads don't reopen it
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, "", newUrl);
+      }
+    }
+  }, []);
   const [txModalState, setTxModalState] = useState<{
     isOpen: boolean;
     state: "pending" | "confirmed" | "error";
@@ -110,8 +124,11 @@ export default function FunderDashboard() {
           return;
         }
 
+        // Reverse the array to show the latest deployed escrow first
+        const reversedAddresses = [...addresses].reverse();
+
         const escrowData = await Promise.all(
-          addresses.map(async (addr) => {
+          reversedAddresses.map(async (addr) => {
             try {
               const builder = await publicClient.readContract({
                 address: addr as `0x${string}`,
@@ -158,12 +175,32 @@ export default function FunderDashboard() {
                 2: "cancelled",
                 3: "disputed",
               };
-              const statusStr = statusMap[statusRaw as number] || "active";
+              let statusStr = statusMap[statusRaw as number] || "active";
+
+              const now = Math.floor(Date.now() / 1000);
+              const pendingMilestones = milestones.filter(m => {
+                const status = Array.isArray(m) ? m[6] : m.status;
+                return Number(status) !== 2;
+              });
+              
+              const allPendingExpired = pendingMilestones.length > 0 && pendingMilestones.every(m => {
+                const deadline = Number(Array.isArray(m) ? m[5] : m.deadline);
+                return deadline > 0 && now > deadline;
+              });
+
+              if (statusStr === "active" && allPendingExpired) {
+                statusStr = "expired";
+              }
 
               // milestone status: 0 = active/pending, 1 = completed, 2 = cancelled, 3 = disputed
-              const completedCount = milestones.filter((m) => Number(m[6]) === 1).length;
+              const completedCount = milestones.filter(
+                (m) => {
+                  const status = Array.isArray(m) ? m[6] : m.status;
+                  return Number(status) === 2;
+                }
+              ).length;
 
-              const firstTitle = milestones[0]?.[0] || "Untitled Escrow";
+              const firstTitle = milestones[0] ? (Array.isArray(milestones[0]) ? milestones[0][0] : milestones[0].title) : "Untitled Escrow";
               const escrowTitle = milestones.length > 1 ? `${firstTitle} (Multi-Step)` : firstTitle;
 
               return {
@@ -196,8 +233,17 @@ export default function FunderDashboard() {
 
   const displayEscrows = escrows.length > 0 ? escrows : MOCK_ESCROWS;
 
+  const filteredEscrows = displayEscrows.filter((escrow) => {
+    if (statusFilter === "All Statuses") return true;
+    return escrow.status.toLowerCase() === statusFilter.toLowerCase();
+  });
+
   // Compute summary stats from current escrows
-  const totalLockedAmount = displayEscrows.reduce((sum, e) => sum + (Number(e.totalAmount) || 0), 0);
+  const totalLockedAmount = displayEscrows.reduce((sum, e) => {
+    if (e.status === "completed" || e.status === "cancelled") return sum;
+    const lockedInEscrow = (Number(e.totalAmount) || 0) - (Number(e.released) || 0);
+    return sum + lockedInEscrow;
+  }, 0);
   const activeCount = displayEscrows.filter((e) => e.status === "active").length;
   const milestonesReleasedCount = displayEscrows.reduce((sum, e) => sum + (Number(e.milestonesCompleted) || 0), 0);
   const pendingDisputesCount = displayEscrows.filter((e) => e.status === "disputed").length;
@@ -321,6 +367,22 @@ export default function FunderDashboard() {
     );
   }
 
+  // Loading State
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[var(--surface)]">
+        <Navbar />
+        <main className="flex-1 flex flex-col items-center justify-center p-6">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 rounded-full border-4 border-[var(--border)] border-t-[var(--primary)] animate-spin" />
+            <p className="text-[var(--text-secondary)] font-medium">Loading escrows from blockchain...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--surface)]">
       <Navbar />
@@ -370,12 +432,17 @@ export default function FunderDashboard() {
           <div className="p-5 border-b border-[var(--border)] flex justify-between items-center bg-white">
             <h2 style={{ margin: 0, fontSize: "1.25rem", fontFamily: "var(--font-dm-sans)", fontWeight: 600 }}>Active & Past Escrows</h2>
             <div className="flex gap-2">
-              <select className="px-3 py-1.5 border border-[var(--border)] rounded-md text-sm outline-none bg-[var(--surface)]">
-                <option>All Statuses</option>
-                <option>Active</option>
-                <option>Pending</option>
-                <option>Disputed</option>
-                <option>Completed</option>
+              <select 
+                value={statusFilter} 
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-1.5 border border-[var(--border)] rounded-md text-sm outline-none bg-[var(--surface)]"
+              >
+                <option value="All Statuses">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="expired">Expired</option>
+                <option value="disputed">Disputed</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
               </select>
             </div>
           </div>
@@ -393,7 +460,7 @@ export default function FunderDashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white">
-                {displayEscrows.map((escrow) => {
+                {filteredEscrows.map((escrow) => {
                   const progressPercent = (escrow.milestonesCompleted / escrow.milestonesTotal) * 100;
                   return (
                     <tr key={escrow.id} className="border-b border-[var(--border)] hover:bg-[var(--surface)] transition-colors">
@@ -421,7 +488,7 @@ export default function FunderDashboard() {
                       <td className="p-4 text-sm text-[var(--text-secondary)]">{escrow.created}</td>
                       <td className="p-4">
                         <div className="flex justify-end gap-2">
-                          <button className="btn-secondary px-3 py-1.5 text-xs">View</button>
+                          <Link href={`/escrow/${escrow.id}`} className="btn-secondary px-3 py-1.5 text-xs">View</Link>
                           {escrow.status === "active" && (
                             <button className="btn-ghost px-3 py-1.5 text-xs text-[var(--text-primary)] hover:bg-[var(--surface)] border border-transparent hover:border-[var(--border)] rounded-md">Manage</button>
                           )}
@@ -435,16 +502,16 @@ export default function FunderDashboard() {
             </table>
           </div>
 
-          {displayEscrows.length === 0 && (
+          {filteredEscrows.length === 0 && (
             <div className="py-12 bg-white">
               <EmptyState
-                title="No Escrows Found"
-                description="You haven't created any escrows yet. Get started by creating your first milestone-based escrow."
+                title={displayEscrows.length === 0 ? "No Escrows Found" : "No Matching Escrows"}
+                description={displayEscrows.length === 0 ? "You haven't created any escrows yet. Get started by creating your first milestone-based escrow." : "Try choosing a different status filter."}
                 variant="streams"
-                action={{
+                action={displayEscrows.length === 0 ? {
                   label: "Create New Escrow",
                   onClick: () => setIsDrawerOpen(true),
-                }}
+                } : undefined}
               />
             </div>
           )}

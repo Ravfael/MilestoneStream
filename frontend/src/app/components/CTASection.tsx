@@ -32,7 +32,7 @@ export default function CTABanner() {
           Create your first escrow in under 2 minutes.
         </p>
         <a
-          href="/create"
+          href="/funder?create=true"
           className="animate-fade-in-up delay-200 btn btn-lg"
           id="btn-cta-create-escrow"
           style={{

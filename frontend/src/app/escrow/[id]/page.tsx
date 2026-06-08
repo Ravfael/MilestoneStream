@@ -10,7 +10,8 @@ import StatusBadge, { StatusType } from "../../components/StatusBadge";
 import MilestoneTypeChip, { MilestoneType } from "../../components/MilestoneTypeChip";
 import { useWallet } from "../../components/WalletContext";
 import { useWriteContract, usePublicClient } from "wagmi";
-import { MILESTONE_ESCROW_ABI } from "../../components/contracts";
+import { MILESTONE_ESCROW_ABI, VERIFIER_ADDRESSES, getContractEventsChunked } from "../../components/contracts";
+import { decodeAbiParameters } from "viem";
 
 // Mock Data
 const MOCK_ESCROW = {
@@ -97,9 +98,13 @@ export default function EscrowDetailPage() {
   const [demoUserRole, setDemoUserRole] = useState<"visitor" | "funder" | "builder">("visitor");
   const [escrowState, setEscrowState] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedProofMilestone, setSelectedProofMilestone] = useState<any>(null);
 
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
+
+  const explorerUrl = publicClient?.chain?.blockExplorers?.default?.url || "https://sepolia.etherscan.io";
+  const explorerName = publicClient?.chain?.blockExplorers?.default?.name || "Etherscan";
 
   useEffect(() => {
     async function fetchEscrowDetails() {
@@ -179,10 +184,11 @@ export default function EscrowDetailPage() {
 
         const getMilestoneType = (verifierAddr: string): string => {
           const lower = verifierAddr.toLowerCase();
-          if (lower === "0x5fbdb2315678afecb367f032d93f642f64180aa3") return "contract-deploy";
-          if (lower === "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512") return "deadline";
-          if (lower === "0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0") return "tx-count";
-          if (lower === "0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9") return "tvl";
+          for (const [type, addr] of Object.entries(VERIFIER_ADDRESSES)) {
+            if (addr.toLowerCase() === lower) {
+              return type;
+            }
+          }
           return "deadline";
         };
 
@@ -200,6 +206,8 @@ export default function EscrowDetailPage() {
             type: getMilestoneType(m[3]),
             description: m[1] || "Automated milestone verification.",
             verifierDetails: `Verifier address: ${m[3]}`,
+            verifierAddress: m[3],
+            verifierParams: m[4],
             amount: Number(m[2]) / 1e6,
             status: milestoneStatusStr,
             deadline: m[5] > 0 ? new Date(Number(m[5]) * 1000).toLocaleDateString() : undefined,
@@ -207,6 +215,47 @@ export default function EscrowDetailPage() {
         });
 
         const activeDispute = milestonesFormatted.find((m) => m.status === "disputed");
+
+        let activityLog = [{ id: "al0", event: "Escrow Created & Funded", time: "Just now", txHash: escrowAddress }];
+        try {
+          const logs = await getContractEventsChunked(publicClient, {
+            address: escrowAddress as `0x${string}`,
+            abi: MILESTONE_ESCROW_ABI,
+          });
+
+          if (logs && logs.length > 0) {
+            const sortedLogs = [...logs].reverse();
+            activityLog = sortedLogs.map((log: any, idx) => {
+              let eventDesc = "";
+              const mIdx = log.args.milestoneIndex !== undefined ? Number(log.args.milestoneIndex) + 1 : null;
+              
+              if (log.eventName === "EscrowCreated") {
+                eventDesc = "Escrow Created & Funded";
+              } else if (log.eventName === "MilestoneClaimed") {
+                eventDesc = `Milestone ${mIdx} Claimed`;
+              } else if (log.eventName === "MilestoneReleased") {
+                eventDesc = `Milestone ${mIdx} Released`;
+              } else if (log.eventName === "MilestoneDisputed") {
+                eventDesc = `Milestone ${mIdx} Disputed`;
+              } else if (log.eventName === "DisputeResolved") {
+                eventDesc = `Dispute ${mIdx} Resolved (${log.args.builderWins ? "Builder Wins" : "Funder Wins"})`;
+              } else if (log.eventName === "EscrowCancelled") {
+                eventDesc = "Escrow Cancelled";
+              } else {
+                eventDesc = log.eventName;
+              }
+
+              return {
+                id: `log-${idx}`,
+                event: eventDesc,
+                time: `Block #${log.blockNumber}`,
+                txHash: log.transactionHash,
+              };
+            });
+          }
+        } catch (err) {
+          console.error("Failed to fetch event logs", err);
+        }
 
         setEscrowState({
           id: escrowAddress,
@@ -225,7 +274,7 @@ export default function EscrowDetailPage() {
           funder: { address: funder, avatar: "🟣" },
           builder: { address: builder, avatar: "🟢" },
           milestones: milestonesFormatted,
-          activityLog: [{ id: "al0", event: "Escrow Created & Funded", time: "Just now", txHash: escrowAddress }],
+          activityLog: activityLog,
           hasDispute: !!activeDispute,
           disputeDetails: activeDispute
             ? {
@@ -307,6 +356,21 @@ export default function EscrowDetailPage() {
     if (network === "Robinhood Chain") return "🏹";
     return "🌐";
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[var(--surface)]">
+        <Navbar />
+        <main className="flex-1 flex flex-col items-center justify-center p-6">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 rounded-full border-4 border-[var(--border)] border-t-[var(--primary)] animate-spin" />
+            <p className="text-[var(--text-secondary)] font-medium">Loading escrow details from blockchain...</p>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   const escrow = activeEscrow;
   const userRole = escrowState ? derivedRole : demoUserRole;
@@ -468,11 +532,11 @@ export default function EscrowDetailPage() {
               </div>
             </div>
             <a
-              href={`https://arbiscan.io/address/${escrow.funder.address}`}
+              href={`${explorerUrl}/address/${escrow.funder.address}`}
               target="_blank"
               rel="noopener noreferrer"
               className="ml-auto p-3 bg-[var(--surface)] rounded-lg text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--primary-light)] transition-all"
-              title="View on Arbiscan"
+              title={`View on ${explorerName}`}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -495,11 +559,11 @@ export default function EscrowDetailPage() {
               </div>
             </div>
             <a
-              href={`https://arbiscan.io/address/${escrow.builder.address}`}
+              href={`${explorerUrl}/address/${escrow.builder.address}`}
               target="_blank"
               rel="noopener noreferrer"
               className="ml-auto p-3 bg-[var(--surface)] rounded-lg text-[var(--text-muted)] hover:text-[var(--success)] hover:bg-[var(--success-light)] transition-all"
-              title="View on Arbiscan"
+              title={`View on ${explorerName}`}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
@@ -629,10 +693,9 @@ export default function EscrowDetailPage() {
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                   <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
                                 </svg>
-                                Claim Funds (Withdraw)
-                              </button>
+                                                              </button>
                             )}
-                            {isClaimed && <button className="btn btn-secondary bg-[var(--surface)] hover:bg-[var(--border)]">View Proof</button>}
+                            {isClaimed && <button className="btn btn-secondary bg-[var(--surface)] hover:bg-[var(--border)]" onClick={() => setSelectedProofMilestone(milestone)}>View Proof</button>}
                             {isDisputed && <button className="btn btn-secondary border-[var(--danger)] text-[var(--danger)] hover:bg-[var(--danger)] hover:text-white">Submit Evidence</button>}
                             {isPending && (
                               <button className="btn btn-primary bg-[var(--text-primary)] hover:bg-black" onClick={() => handleBuilderClaim(milestone.index)}>
@@ -650,16 +713,21 @@ export default function EscrowDetailPage() {
                                 Dispute Claim
                               </button>
                             )}
-                            {(isClaimed || isVerified) && <button className="btn btn-secondary bg-[var(--surface)] hover:bg-[var(--border)]">View Proof</button>}
+                            {(isClaimed || isVerified) && <button className="btn btn-secondary bg-[var(--surface)] hover:bg-[var(--border)]" onClick={() => setSelectedProofMilestone(milestone)}>View Proof</button>}
                             {isPending && <button className="btn btn-secondary bg-white">Verify Manually</button>}
                           </>
                         )}
 
                         {/* Public / Anyone Actions */}
-                        {(isClaimed || isVerified || isDisputed) && userRole === "visitor" && <button className="btn btn-secondary bg-[var(--surface)] hover:bg-[var(--border)] text-sm">View Proof</button>}
+                        {(isClaimed || isVerified || isDisputed) && userRole === "visitor" && <button className="btn btn-secondary bg-[var(--surface)] hover:bg-[var(--border)] text-sm" onClick={() => setSelectedProofMilestone(milestone)}>View Proof</button>}
 
-                        <a href="#" className="flex items-center gap-1.5 text-sm font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)] hover:underline ml-auto">
-                          View on Arbiscan
+                        <a
+                          href={milestone.verifierAddress ? `${explorerUrl}/address/${milestone.verifierAddress}` : `${explorerUrl}/address/${escrowAddress}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-sm font-semibold text-[var(--primary)] hover:text-[var(--primary-hover)] hover:underline ml-auto"
+                        >
+                          View Verifier on {explorerName}
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                             <polyline points="15 3 21 3 21 9" />
@@ -724,7 +792,9 @@ export default function EscrowDetailPage() {
                           {log.time}
                         </span>
                         <a
-                          href={`https://arbiscan.io/tx/${log.txHash}`}
+                          href={`${explorerUrl}/tx/${log.txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="text-xs font-mono font-medium text-[var(--primary)] bg-[var(--primary-light)] px-2 py-0.5 rounded hover:underline flex items-center gap-1 transition-colors"
                         >
                           {log.txHash.slice(0, 10)}...
@@ -740,8 +810,13 @@ export default function EscrowDetailPage() {
                 ))}
               </div>
               <div className="p-4 bg-[var(--surface)] border-t border-[var(--border)] text-center">
-                <a href="#" className="text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors">
-                  View Full History →
+                <a
+                  href={`${explorerUrl}/address/${escrowAddress}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--primary)] transition-colors"
+                >
+                  View Full History on {explorerName} →
                 </a>
               </div>
             </div>
@@ -750,6 +825,272 @@ export default function EscrowDetailPage() {
       </main>
 
       <Footer />
+
+      {/* Proof Modal */}
+      {selectedProofMilestone && (
+        <ProofModal
+          milestone={selectedProofMilestone}
+          explorerUrl={explorerUrl}
+          explorerName={explorerName}
+          onClose={() => setSelectedProofMilestone(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+const decodeVerifierParams = (type: string, paramsHex: string) => {
+  if (!paramsHex || paramsHex === "0x") return null;
+  try {
+    const hex = paramsHex as `0x${string}`;
+    if (type === "contract-deploy") {
+      const decoded = decodeAbiParameters([{ type: "address" }], hex);
+      return {
+        deployedAddress: decoded[0],
+      };
+    } else if (type === "deadline") {
+      const decoded = decodeAbiParameters([{ type: "uint256" }], hex);
+      return {
+        timestamp: Number(decoded[0]),
+      };
+    } else if (type === "tx-count") {
+      const decoded = decodeAbiParameters(
+        [
+          { type: "address", name: "targetContract" },
+          { type: "uint256", name: "requiredCount" },
+          { type: "bytes4", name: "selector" }
+        ],
+        hex
+      );
+      return {
+        targetContract: decoded[0],
+        requiredCount: Number(decoded[1]),
+        selector: decoded[2],
+      };
+    } else if (type === "tvl") {
+      const decoded = decodeAbiParameters(
+        [
+          { type: "address", name: "targetContract" },
+          { type: "address", name: "token" },
+          { type: "address", name: "priceFeed" },
+          { type: "uint256", name: "requiredUSD" }
+        ],
+        hex
+      );
+      return {
+        targetContract: decoded[0],
+        token: decoded[1],
+        priceFeed: decoded[2],
+        requiredUSD: Number(decoded[3]),
+      };
+    }
+  } catch (e) {
+    console.error("Failed to decode verifierParams", e);
+  }
+  return null;
+};
+
+interface ProofModalProps {
+  milestone: any;
+  explorerUrl: string;
+  explorerName: string;
+  onClose: () => void;
+}
+
+function ProofModal({ milestone, explorerUrl, explorerName, onClose }: ProofModalProps) {
+  const decoded: any = decodeVerifierParams(milestone.type, milestone.verifierParams);
+
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, []);
+
+  return (
+    <div
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-white rounded-2xl border border-[var(--border)] shadow-xl w-full max-w-lg p-6 sm:p-8 flex flex-col gap-6 animate-fade-in-up text-left">
+        {/* Header */}
+        <div className="flex justify-between items-start">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-bold uppercase tracking-widest text-[var(--primary)]">
+              Milestone {milestone.index + 1} Proof
+            </span>
+            <h3 className="text-xl font-bold text-[var(--text-primary)] font-playfair">
+              {milestone.title}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface)] transition-all"
+            title="Close"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex flex-col gap-4 text-left">
+          <div className="flex justify-between items-center bg-[var(--surface)] p-3.5 rounded-xl border border-[var(--border)] text-sm">
+            <span className="text-[var(--text-secondary)] font-medium">Verification Method</span>
+            <span className="font-semibold capitalize text-[var(--primary)] bg-[var(--primary-light)] px-2.5 py-1 rounded-md text-xs">
+              {milestone.type?.replace("-", " ")}
+            </span>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">Verifier Smart Contract</span>
+            <a
+              href={`${explorerUrl}/address/${milestone.verifierAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-semibold text-[var(--primary)] hover:underline truncate flex items-center gap-1.5"
+            >
+              {milestone.verifierAddress}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                <polyline points="15 3 21 3 21 9" />
+                <line x1="10" y1="14" x2="21" y2="3" />
+              </svg>
+            </a>
+          </div>
+
+          <div className="w-full h-px bg-[var(--border)]" />
+
+          {/* Decoded Params */}
+          <div className="flex flex-col gap-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">On-Chain Proof Data</span>
+            
+            {decoded ? (
+              <div className="flex flex-col gap-3.5 bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)]">
+                {milestone.type === "contract-deploy" && decoded.deployedAddress && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-[var(--text-secondary)] font-medium">Target Contract Address</span>
+                    <a
+                      href={`${explorerUrl}/address/${decoded.deployedAddress}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-mono font-semibold text-[var(--primary)] hover:underline truncate"
+                    >
+                      {decoded.deployedAddress}
+                    </a>
+                  </div>
+                )}
+
+                {milestone.type === "deadline" && decoded.timestamp && (
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-[var(--text-secondary)] font-medium">Deadline Timestamp</span>
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">
+                      {new Date(decoded.timestamp * 1000).toLocaleString()} ({decoded.timestamp})
+                    </span>
+                  </div>
+                )}
+
+                {milestone.type === "tx-count" && (
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-[var(--text-secondary)] font-medium">Target Contract</span>
+                      <a
+                        href={`${explorerUrl}/address/${decoded.targetContract}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-mono font-semibold text-[var(--primary)] hover:underline truncate"
+                      >
+                        {decoded.targetContract}
+                      </a>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-[var(--text-secondary)] font-medium">Required Tx Count</span>
+                      <span className="font-semibold text-[var(--text-primary)]">{decoded.requiredCount}</span>
+                    </div>
+                    {decoded.selector && (
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-[var(--text-secondary)] font-medium">Function Selector</span>
+                        <span className="font-mono font-semibold text-[var(--text-primary)]">{decoded.selector}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {milestone.type === "tvl" && (
+                  <div className="flex flex-col gap-2.5">
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs text-[var(--text-secondary)] font-medium">Target Contract</span>
+                      <a
+                        href={`${explorerUrl}/address/${decoded.targetContract}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-mono font-semibold text-[var(--primary)] hover:underline truncate"
+                      >
+                        {decoded.targetContract}
+                      </a>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-[var(--text-secondary)] font-medium">Token Address</span>
+                      <a
+                        href={`${explorerUrl}/address/${decoded.token}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono font-semibold text-[var(--primary)] hover:underline"
+                      >
+                        {decoded.token.slice(0, 6)}...{decoded.token.slice(-4)}
+                      </a>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-[var(--text-secondary)] font-medium">Price Feed</span>
+                      <a
+                        href={`${explorerUrl}/address/${decoded.priceFeed}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono font-semibold text-[var(--primary)] hover:underline"
+                      >
+                        {decoded.priceFeed.slice(0, 6)}...{decoded.priceFeed.slice(-4)}
+                      </a>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-[var(--text-secondary)] font-medium">Required TVL</span>
+                      <span className="font-semibold text-[var(--text-primary)]">${decoded.requiredUSD.toLocaleString()} USD</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs text-[var(--text-muted)] mt-1.5 leading-relaxed">
+                  {milestone.type === "contract-deploy" && "Verification queries the blockchain to ensure contract bytecode has been initialized at the target address."}
+                  {milestone.type === "deadline" && "Verification ensures that the milestone claim occurs before the expiration timestamp."}
+                  {milestone.type === "tx-count" && "Verification queries target contract logs/transactions to assert the count of executions matches or exceeds the threshold."}
+                  {milestone.type === "tvl" && "Verification checks the contract balance and compares it against price feeds to confirm total value locked."}
+                </div>
+              </div>
+            ) : (
+              // Fallback / Mock
+              <div className="flex flex-col gap-2.5 bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)]">
+                <div className="text-sm font-semibold text-[var(--text-primary)]">
+                  {milestone.verifierDetails}
+                </div>
+                <div className="text-xs text-[var(--text-muted)] leading-relaxed">
+                  This milestone uses {milestone.type || "custom"} verification. The verifier contract automatically queries on-chain state when builder calls claimMilestone.
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Action */}
+        <button
+          className="btn btn-primary w-full mt-2"
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </div>
     </div>
   );
 }
