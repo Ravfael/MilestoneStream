@@ -64,9 +64,14 @@ export default function FunderDashboard() {
 
   // Modals
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [txModalState, setTxModalState] = useState<{ isOpen: boolean; state: "pending" | "confirmed" | "error" }>({
+  const [txModalState, setTxModalState] = useState<{ 
+    isOpen: boolean; 
+    state: "pending" | "confirmed" | "error";
+    txHash?: string;
+  }>({
     isOpen: false,
-    state: "pending"
+    state: "pending",
+    txHash: ""
   });
 
   const { writeContractAsync } = useWriteContract();
@@ -200,7 +205,7 @@ export default function FunderDashboard() {
 
   const handleDeployEscrow = async (data: any) => {
     setIsDrawerOpen(false);
-    setTxModalState({ isOpen: true, state: "pending" });
+    setTxModalState({ isOpen: true, state: "pending", txHash: "" });
     
     try {
       if (!publicClient) throw new Error("Public client not available");
@@ -238,6 +243,7 @@ export default function FunderDashboard() {
           formattedMilestones,
         ],
       });
+      setTxModalState({ isOpen: true, state: "pending", txHash: deployHash });
 
       const deployReceipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
       
@@ -257,6 +263,7 @@ export default function FunderDashboard() {
         functionName: "approve",
         args: [newEscrowAddress, totalAmountRaw],
       });
+      setTxModalState({ isOpen: true, state: "pending", txHash: approveHash });
 
       await publicClient.waitForTransactionReceipt({ hash: approveHash });
 
@@ -267,10 +274,11 @@ export default function FunderDashboard() {
         functionName: "lockFunds",
         args: [totalAmountRaw],
       });
+      setTxModalState({ isOpen: true, state: "pending", txHash: lockHash });
 
       await publicClient.waitForTransactionReceipt({ hash: lockHash });
 
-      setTxModalState({ isOpen: true, state: "confirmed" });
+      setTxModalState({ isOpen: true, state: "confirmed", txHash: lockHash });
       
       // Refresh list
       const addresses = await publicClient.readContract({
@@ -451,6 +459,7 @@ export default function FunderDashboard() {
         isOpen={txModalState.isOpen}
         onClose={() => setTxModalState({ ...txModalState, isOpen: false })}
         state={txModalState.state}
+        txHash={txModalState.txHash}
       />
     </div>
   );

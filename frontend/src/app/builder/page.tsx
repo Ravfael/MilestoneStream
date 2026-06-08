@@ -318,10 +318,13 @@ export default function BuilderDashboard() {
 
               const milestonesFormatted = milestonesList.map((m, idx) => {
                 let milestoneUIStatus = "pending";
+                const deadline = Number(m[5]);
+                const isExpired = deadline > 0 && Math.floor(Date.now() / 1000) > deadline;
+
                 if (m[6] === 1) milestoneUIStatus = "claimed";
                 else if (m[6] === 2) milestoneUIStatus = "claimed";
                 else if (m[6] === 3) milestoneUIStatus = "disputed";
-                else if (m[6] === 4) milestoneUIStatus = "upcoming";
+                else if (isExpired || m[6] === 4) milestoneUIStatus = "expired";
                 else if (m[6] === 0) milestoneUIStatus = "claimable";
 
                 return {
@@ -515,6 +518,7 @@ export default function BuilderDashboard() {
                         const isDisputed = milestone.status === 'disputed';
                         const isUpcoming = milestone.status === 'upcoming';
                         const isPending = milestone.status === 'pending';
+                        const isExpired = milestone.status === 'expired';
                         
                         return (
                           <div key={milestone.id} className="flex gap-4 relative mb-6 last:mb-0">
@@ -523,34 +527,36 @@ export default function BuilderDashboard() {
                               ${isClaimed ? 'bg-[var(--success)] text-white' : 
                                 isClaimable ? 'bg-white border-2 border-[var(--success)] text-[var(--success)]' : 
                                 isDisputed ? 'bg-[var(--danger)] text-white' :
+                                isExpired ? 'bg-[var(--danger-light)] text-[var(--danger)] border-2 border-[var(--danger)]' :
                                 'bg-white border-2 border-[var(--border)] text-[var(--text-muted)]'
                               }`}
                             >
                               {isClaimed && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
                               {isClaimable && <div className="w-2.5 h-2.5 rounded-full bg-[var(--success)]" />}
                               {isDisputed && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>}
+                              {isExpired && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}
                               {isUpcoming && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
                               {isPending && <div className="w-2.5 h-2.5 rounded-full bg-[var(--text-muted)]" />}
                             </div>
-
+ 
                             {/* Content */}
-                            <div className={`flex-1 p-4 rounded-xl border ${isClaimable ? 'border-[var(--primary)] bg-[var(--primary-light)]/5' : 'border-[var(--border)] bg-white'}`}>
+                            <div className={`flex-1 p-4 rounded-xl border ${isClaimable ? 'border-[var(--primary)] bg-[var(--primary-light)]/5' : isExpired ? 'border-[var(--danger-light)] bg-[var(--danger-light)]/5' : 'border-[var(--border)] bg-white'}`}>
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                 <div>
                                   <div className="flex items-center gap-2 mb-1.5">
                                     <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">M{i+1}</span>
-                                    <h5 className="font-semibold text-[var(--text-primary)] m-0">{milestone.title}</h5>
+                                    <h5 className={`font-semibold m-0 ${isExpired ? 'text-[var(--danger)]' : 'text-[var(--text-primary)]'}`}>{milestone.title}</h5>
                                   </div>
                                   <div className="flex items-center gap-3 text-sm text-[var(--text-secondary)] mb-3">
                                     <MilestoneTypeChip type={milestone.type} />
                                     <span>•</span>
                                     <span className="truncate max-w-[200px]">{milestone.condition}</span>
                                   </div>
-                                  <div className="font-medium text-[var(--text-primary)]">
+                                  <div className={`font-medium ${isExpired ? 'text-[var(--danger)]' : 'text-[var(--text-primary)]'}`}>
                                     {milestone.amount.toLocaleString()} USDC
                                   </div>
                                 </div>
-
+ 
                                 {/* Actions */}
                                 <div className="flex items-center sm:justify-end shrink-0">
                                   {isClaimed && (
@@ -577,6 +583,12 @@ export default function BuilderDashboard() {
                                     <a href="#" className="text-sm font-medium text-[var(--danger)] hover:underline flex items-center gap-1">
                                       View Dispute <span aria-hidden="true">&rarr;</span>
                                     </a>
+                                  )}
+                                  {isExpired && (
+                                    <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--danger)] bg-[var(--danger-light)]/30 px-3 py-1.5 rounded-full border border-[var(--danger-light)]">
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                                      Expired
+                                    </span>
                                   )}
                                   {isUpcoming && (
                                     <span className="text-sm font-medium text-[var(--text-muted)]">

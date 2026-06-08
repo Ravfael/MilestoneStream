@@ -34,8 +34,18 @@ export const ESCROW_FACTORY_ABI = [
     ],
     "name": "createEscrow",
     "outputs": [{ "name": "escrowAddress", "type": "address" }],
-    "stateMutability": "external",
+    "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "name": "escrow", "type": "address" },
+      { "indexed": true, "name": "funder", "type": "address" },
+      { "indexed": true, "name": "builder", "type": "address" }
+    ],
+    "name": "EscrowDeployed",
+    "type": "event"
   },
   {
     "inputs": [],
@@ -145,28 +155,28 @@ export const MILESTONE_ESCROW_ABI = [
     "inputs": [{ "name": "amount", "type": "uint256" }],
     "name": "lockFunds",
     "outputs": [],
-    "stateMutability": "external",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [{ "name": "milestoneIndex", "type": "uint256" }],
     "name": "claimMilestone",
     "outputs": [],
-    "stateMutability": "external",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [{ "name": "milestoneIndex", "type": "uint256" }],
     "name": "releaseMilestone",
     "outputs": [],
-    "stateMutability": "external",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [{ "name": "milestoneIndex", "type": "uint256" }],
     "name": "disputeMilestone",
     "outputs": [],
-    "stateMutability": "external",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -176,14 +186,14 @@ export const MILESTONE_ESCROW_ABI = [
     ],
     "name": "resolveDispute",
     "outputs": [],
-    "stateMutability": "external",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "cancelEscrow",
     "outputs": [],
-    "stateMutability": "external",
+    "stateMutability": "nonpayable",
     "type": "function"
   }
 ] as const;
@@ -196,7 +206,7 @@ export const ERC20_ABI = [
     ],
     "name": "approve",
     "outputs": [{ "type": "bool" }],
-    "stateMutability": "external",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -218,10 +228,20 @@ export const ERC20_ABI = [
   }
 ] as const;
 
+/**
+ * Validates whether a string is a valid Ethereum address (0x + 40 hex chars).
+ */
+function isValidAddress(value: string): boolean {
+  return /^0x[0-9a-fA-F]{40}$/.test(value);
+}
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 export function encodeVerifierParams(type: string, paramsStr: string, deadlineStr?: string): `0x${string}` {
   try {
     if (type === "contract-deploy") {
-      const addr = paramsStr.trim() || "0x0000000000000000000000000000000000000000";
+      const raw = paramsStr.trim();
+      const addr = isValidAddress(raw) ? raw : ZERO_ADDRESS;
       return encodeAbiParameters(
         parseAbiParameters("address"),
         [addr as `0x${string}`]
@@ -235,18 +255,23 @@ export function encodeVerifierParams(type: string, paramsStr: string, deadlineSt
       );
     } else if (type === "tx-count") {
       const parts = paramsStr.split(",");
-      const targetContract = parts[0]?.trim() || "0x0000000000000000000000000000000000000000";
+      const rawContract = parts[0]?.trim() || "";
+      const targetContract = isValidAddress(rawContract) ? rawContract : ZERO_ADDRESS;
       const requiredCount = BigInt(parts[1]?.trim() || "10");
-      const selector = (parts[2]?.trim() || "0x00000000") as `0x${string}`;
+      const rawSelector = parts[2]?.trim() || "0x00000000";
+      const selector = (rawSelector.startsWith("0x") ? rawSelector : "0x00000000") as `0x${string}`;
       return encodeAbiParameters(
         parseAbiParameters("address, uint256, bytes4"),
         [targetContract as `0x${string}`, requiredCount, selector]
       );
     } else if (type === "tvl") {
       const parts = paramsStr.split(",");
-      const targetContract = parts[0]?.trim() || "0x0000000000000000000000000000000000000000";
-      const token = parts[1]?.trim() || MOCK_USDC_ADDRESS;
-      const priceFeed = parts[2]?.trim() || "0x0000000000000000000000000000000000000000";
+      const rawContract = parts[0]?.trim() || "";
+      const targetContract = isValidAddress(rawContract) ? rawContract : ZERO_ADDRESS;
+      const rawToken = parts[1]?.trim() || "";
+      const token = isValidAddress(rawToken) ? rawToken : MOCK_USDC_ADDRESS;
+      const rawFeed = parts[2]?.trim() || "";
+      const priceFeed = isValidAddress(rawFeed) ? rawFeed : ZERO_ADDRESS;
       const requiredUSD = BigInt(parts[3]?.trim() || "1000");
       return encodeAbiParameters(
         parseAbiParameters("address, address, address, uint256"),
