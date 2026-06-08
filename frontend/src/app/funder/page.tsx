@@ -53,7 +53,7 @@ const MOCK_ESCROWS = [
     milestonesTotal: 1,
     milestonesCompleted: 1,
     created: "2026-03-15",
-  }
+  },
 ];
 
 export default function FunderDashboard() {
@@ -64,14 +64,14 @@ export default function FunderDashboard() {
 
   // Modals
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [txModalState, setTxModalState] = useState<{ 
-    isOpen: boolean; 
+  const [txModalState, setTxModalState] = useState<{
+    isOpen: boolean;
     state: "pending" | "confirmed" | "error";
     txHash?: string;
   }>({
     isOpen: false,
     state: "pending",
-    txHash: ""
+    txHash: "",
   });
 
   const { writeContractAsync } = useWriteContract();
@@ -160,9 +160,8 @@ export default function FunderDashboard() {
               };
               const statusStr = statusMap[statusRaw as number] || "active";
 
-              const completedCount = milestones.filter(
-                (m) => m[6] === 2
-              ).length;
+              // milestone status: 0 = active/pending, 1 = completed, 2 = cancelled, 3 = disputed
+              const completedCount = milestones.filter((m) => Number(m[6]) === 1).length;
 
               const firstTitle = milestones[0]?.[0] || "Untitled Escrow";
               const escrowTitle = milestones.length > 1 ? `${firstTitle} (Multi-Step)` : firstTitle;
@@ -175,13 +174,13 @@ export default function FunderDashboard() {
                 released: Number(releasedRaw) / 1e6,
                 milestonesTotal: milestones.length,
                 milestonesCompleted: completedCount,
-                created: "2026-06-01",
+                created: new Date().toISOString().slice(0, 10),
               };
             } catch (e) {
               console.error("Error fetching funder escrow", addr, e);
               return null;
             }
-          })
+          }),
         );
 
         setEscrows(escrowData.filter((e) => e !== null) as any[]);
@@ -197,6 +196,17 @@ export default function FunderDashboard() {
 
   const displayEscrows = escrows.length > 0 ? escrows : MOCK_ESCROWS;
 
+  // Compute summary stats from current escrows
+  const totalLockedAmount = displayEscrows.reduce((sum, e) => sum + (Number(e.totalAmount) || 0), 0);
+  const activeCount = displayEscrows.filter((e) => e.status === "active").length;
+  const milestonesReleasedCount = displayEscrows.reduce((sum, e) => sum + (Number(e.milestonesCompleted) || 0), 0);
+  const pendingDisputesCount = displayEscrows.filter((e) => e.status === "disputed").length;
+
+  const totalLockedLabel = `$${totalLockedAmount.toLocaleString()}`;
+  const activeCountLabel = `${activeCount}`;
+  const milestonesReleasedLabel = `${milestonesReleasedCount}`;
+  const pendingDisputesLabel = `${pendingDisputesCount}`;
+
   const handleCopyAddress = async () => {
     await navigator.clipboard.writeText(address);
     setCopied(true);
@@ -206,7 +216,7 @@ export default function FunderDashboard() {
   const handleDeployEscrow = async (data: any) => {
     setIsDrawerOpen(false);
     setTxModalState({ isOpen: true, state: "pending", txHash: "" });
-    
+
     try {
       if (!publicClient) throw new Error("Public client not available");
 
@@ -237,16 +247,12 @@ export default function FunderDashboard() {
         address: FACTORY_ADDRESS as `0x${string}`,
         abi: ESCROW_FACTORY_ABI,
         functionName: "createEscrow",
-        args: [
-          data.builderWallet as `0x${string}`,
-          MOCK_USDC_ADDRESS as `0x${string}`,
-          formattedMilestones,
-        ],
+        args: [data.builderWallet as `0x${string}`, MOCK_USDC_ADDRESS as `0x${string}`, formattedMilestones],
       });
       setTxModalState({ isOpen: true, state: "pending", txHash: deployHash });
 
       const deployReceipt = await publicClient.waitForTransactionReceipt({ hash: deployHash });
-      
+
       const logs = parseEventLogs({
         abi: ESCROW_FACTORY_ABI,
         eventName: "EscrowDeployed",
@@ -279,7 +285,7 @@ export default function FunderDashboard() {
       await publicClient.waitForTransactionReceipt({ hash: lockHash });
 
       setTxModalState({ isOpen: true, state: "confirmed", txHash: lockHash });
-      
+
       // Refresh list
       const addresses = await publicClient.readContract({
         address: FACTORY_ADDRESS as `0x${string}`,
@@ -306,7 +312,7 @@ export default function FunderDashboard() {
             variant="wallet"
             action={{
               label: "Connect Wallet",
-              onClick: connect
+              onClick: connect,
             }}
           />
         </main>
@@ -315,33 +321,37 @@ export default function FunderDashboard() {
     );
   }
 
-
   return (
     <div className="min-h-screen flex flex-col bg-[var(--surface)]">
       <Navbar />
-      
+
       <main className="flex-1 max-w-[1200px] w-full mx-auto p-6 flex flex-col gap-8">
-        
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <h1 style={{ margin: "0 0 8px 0", fontSize: "2rem" }}>My Escrows</h1>
             <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
               <span className="mono bg-white border border-[var(--border)] px-2 py-1 rounded-md">
-                {address.slice(0,6)}...{address.slice(-4)}
+                {address.slice(0, 6)}...{address.slice(-4)}
               </span>
               <button onClick={handleCopyAddress} className="btn-ghost p-1" title="Copy Address">
                 {copied ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
                 ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="9" width="13" height="13" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
                 )}
               </button>
             </div>
           </div>
           <button className="btn btn-primary btn-lg" onClick={() => setIsDrawerOpen(true)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
             Create New Escrow
           </button>
@@ -349,10 +359,10 @@ export default function FunderDashboard() {
 
         {/* SUMMARY CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Total Locked" value="$48,000" subtitle="Across 4 escrows" />
-          <StatCard title="Active Escrows" value="2" subtitle="Currently in progress" />
-          <StatCard title="Milestones Released" value="14" subtitle="Total completed" />
-          <StatCard title="Pending Disputes" value="1" subtitle="Requires attention" isAlert />
+          <StatCard title="Total Locked" value={totalLockedLabel} subtitle={`Across ${displayEscrows.length} escrows`} />
+          <StatCard title="Active Escrows" value={activeCountLabel} subtitle="Currently in progress" />
+          <StatCard title="Milestones Released" value={milestonesReleasedLabel} subtitle="Total completed" />
+          <StatCard title="Pending Disputes" value={pendingDisputesLabel} subtitle="Requires attention" isAlert />
         </div>
 
         {/* ESCROWS LIST */}
@@ -369,7 +379,7 @@ export default function FunderDashboard() {
               </select>
             </div>
           </div>
-          
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[900px]">
               <thead>
@@ -388,17 +398,19 @@ export default function FunderDashboard() {
                   return (
                     <tr key={escrow.id} className="border-b border-[var(--border)] hover:bg-[var(--surface)] transition-colors">
                       <td className="p-4 font-medium text-[var(--text-primary)]">{escrow.name}</td>
-                      <td className="p-4"><StatusBadge status={escrow.status as any} /></td>
+                      <td className="p-4">
+                        <StatusBadge status={escrow.status as any} />
+                      </td>
                       <td className="p-4 text-right">
                         <AmountDisplay amount={escrow.totalAmount} token="USDC" />
-                        <div className="text-xs text-[var(--text-muted)] mt-1">
-                          {escrow.released} USDC released
-                        </div>
+                        <div className="text-xs text-[var(--text-muted)] mt-1">{escrow.released} USDC released</div>
                       </td>
                       <td className="p-4">
                         <div className="flex flex-col gap-1.5 w-32">
                           <div className="flex justify-between text-xs font-medium">
-                            <span className="text-[var(--text-secondary)]">{escrow.milestonesCompleted} / {escrow.milestonesTotal}</span>
+                            <span className="text-[var(--text-secondary)]">
+                              {escrow.milestonesCompleted} / {escrow.milestonesTotal}
+                            </span>
                             <span className="text-[var(--text-muted)]">{Math.round(progressPercent)}%</span>
                           </div>
                           <div className="progress-bar w-full bg-[var(--border)] h-1.5 rounded-full overflow-hidden">
@@ -410,16 +422,10 @@ export default function FunderDashboard() {
                       <td className="p-4">
                         <div className="flex justify-end gap-2">
                           <button className="btn-secondary px-3 py-1.5 text-xs">View</button>
-                          {escrow.status === 'active' && (
-                            <button className="btn-ghost px-3 py-1.5 text-xs text-[var(--text-primary)] hover:bg-[var(--surface)] border border-transparent hover:border-[var(--border)] rounded-md">
-                              Manage
-                            </button>
+                          {escrow.status === "active" && (
+                            <button className="btn-ghost px-3 py-1.5 text-xs text-[var(--text-primary)] hover:bg-[var(--surface)] border border-transparent hover:border-[var(--border)] rounded-md">Manage</button>
                           )}
-                          {escrow.status === 'disputed' && (
-                            <button className="btn-secondary px-3 py-1.5 text-xs text-[var(--danger)] border-[var(--danger-light)] hover:bg-[var(--danger-light)]">
-                              Resolve
-                            </button>
-                          )}
+                          {escrow.status === "disputed" && <button className="btn-secondary px-3 py-1.5 text-xs text-[var(--danger)] border-[var(--danger-light)] hover:bg-[var(--danger-light)]">Resolve</button>}
                         </div>
                       </td>
                     </tr>
@@ -428,7 +434,7 @@ export default function FunderDashboard() {
               </tbody>
             </table>
           </div>
-          
+
           {displayEscrows.length === 0 && (
             <div className="py-12 bg-white">
               <EmptyState
@@ -437,30 +443,20 @@ export default function FunderDashboard() {
                 variant="streams"
                 action={{
                   label: "Create New Escrow",
-                  onClick: () => setIsDrawerOpen(true)
+                  onClick: () => setIsDrawerOpen(true),
                 }}
               />
             </div>
           )}
         </div>
-
       </main>
-      
+
       <Footer />
 
       {/* DRAWERS & MODALS */}
-      <CreateEscrowDrawer
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        onDeploy={handleDeployEscrow}
-      />
-      
-      <TransactionPendingModal
-        isOpen={txModalState.isOpen}
-        onClose={() => setTxModalState({ ...txModalState, isOpen: false })}
-        state={txModalState.state}
-        txHash={txModalState.txHash}
-      />
+      <CreateEscrowDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} onDeploy={handleDeployEscrow} />
+
+      <TransactionPendingModal isOpen={txModalState.isOpen} onClose={() => setTxModalState({ ...txModalState, isOpen: false })} state={txModalState.state} txHash={txModalState.txHash} />
     </div>
   );
 }
@@ -475,9 +471,7 @@ function StatCard({ title, value, subtitle, isAlert = false }: { title: string; 
       )}
       <div className="text-sm font-medium text-[var(--text-secondary)]">{title}</div>
       <div className="text-3xl font-semibold font-playfair tracking-tight text-[var(--text-primary)] stat-number">{value}</div>
-      <div className="text-xs text-[var(--text-muted)] flex items-center gap-1.5 mt-1">
-        {subtitle}
-      </div>
+      <div className="text-xs text-[var(--text-muted)] flex items-center gap-1.5 mt-1">{subtitle}</div>
     </div>
   );
 }
