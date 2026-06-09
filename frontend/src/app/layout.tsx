@@ -44,7 +44,9 @@ export const metadata: Metadata = {
     "grants",
   ],
   icons: {
-    icon: '/logo2.jpg',
+    icon: "/favicon_icon.png",
+    shortcut: "/favicon_icon.png",
+    apple: "/favicon_icon.png",
   },
 };
 
