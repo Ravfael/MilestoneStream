@@ -36,7 +36,7 @@ export default function HowItWorks() {
   };
 
   return (
-    <section className="bg-white py-24 font-sans">
+    <section id="how-it-works" className="bg-white py-24 font-sans">
       <div className="max-w-6xl mx-auto px-6 lg:px-8">
         
         {/* Header */}

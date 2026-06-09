@@ -62,6 +62,7 @@ export default function FunderDashboard() {
   const [copied, setCopied] = useState(false);
   const [escrows, setEscrows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDeployed, setIsDeployed] = useState(false);
   const [statusFilter, setStatusFilter] = useState("All Statuses");
 
   // Modals
@@ -106,10 +107,13 @@ export default function FunderDashboard() {
 
         if (!bytecode || bytecode === "0x") {
           console.warn("Factory contract not deployed on this network. Using mock data.");
+          setIsDeployed(false);
           setEscrows([]);
           setLoading(false);
           return;
         }
+
+        setIsDeployed(true);
 
         const addresses = (await publicClient.readContract({
           address: FACTORY_ADDRESS as `0x${string}`,
@@ -231,7 +235,7 @@ export default function FunderDashboard() {
     fetchFunderEscrows();
   }, [publicClient, address]);
 
-  const displayEscrows = escrows.length > 0 ? escrows : MOCK_ESCROWS;
+  const displayEscrows = isDeployed ? escrows : MOCK_ESCROWS;
 
   const filteredEscrows = displayEscrows.filter((escrow) => {
     if (statusFilter === "All Statuses") return true;

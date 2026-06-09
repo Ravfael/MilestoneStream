@@ -49,7 +49,7 @@ export default function Navbar() {
           </a>
 
           {/* Desktop Nav */}
-          <div className="hidden items-center gap-1 md:flex">
+          <div className="hidden items-center gap-1 md:flex"> 
             <a href="/explore" className="nav-link">Explore</a>
             <a href="/#how-it-works" className="nav-link">How It Works</a>
             <a href="https://github.com/Ravfael/MilestoneStream" target="_blank" rel="noopener noreferrer" className="nav-link flex items-center gap-1">

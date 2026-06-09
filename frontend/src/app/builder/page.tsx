@@ -214,6 +214,7 @@ export default function BuilderDashboard() {
   const [escrows, setEscrows] = useState<any[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isDeployed, setIsDeployed] = useState(false);
   const [claimModalData, setClaimModalData] = useState<{ isOpen: boolean; milestone: any; escrow: any }>({
     isOpen: false,
     milestone: null,
@@ -239,10 +240,13 @@ export default function BuilderDashboard() {
 
         if (!bytecode || bytecode === "0x") {
           console.warn("Factory contract not deployed on this network. Using mock data.");
+          setIsDeployed(false);
           setEscrows([]);
           setLoading(false);
           return;
         }
+
+        setIsDeployed(true);
 
         const addresses = (await publicClient.readContract({
           address: FACTORY_ADDRESS as `0x${string}`,
@@ -434,8 +438,8 @@ export default function BuilderDashboard() {
     fetchBuilderEscrows();
   }, [publicClient, address]);
 
-  const displayEscrows = escrows.length > 0 ? escrows : MOCK_BUILDER_ESCROWS;
-  const displayPayments = escrows.length > 0 ? paymentHistory : MOCK_PAYMENT_HISTORY;
+  const displayEscrows = isDeployed ? escrows : MOCK_BUILDER_ESCROWS;
+  const displayPayments = isDeployed ? paymentHistory : MOCK_PAYMENT_HISTORY;
 
   const handleCopyAddress = async () => {
     await navigator.clipboard.writeText(address);

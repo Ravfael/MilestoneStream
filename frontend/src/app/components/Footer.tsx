@@ -26,12 +26,7 @@ export default function Footer() {
                 { label: "Contract Addresses", href: "/docs/contracts", external: false },
               ].map((l) => (
                 <li key={l.label}>
-                  <a
-                    href={l.href}
-                    {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                    className="text-sm no-underline transition-colors hover:text-[var(--text-primary)]"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
+                  <a href={l.href} {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})} className="text-sm no-underline transition-colors hover:text-[var(--text-primary)]" style={{ color: "var(--text-secondary)" }}>
                     {l.label}
                   </a>
                 </li>
@@ -52,11 +47,7 @@ export default function Footer() {
                 { label: "Create Escrow", href: "/funder?create=true" },
               ].map((l) => (
                 <li key={l.label}>
-                  <a
-                    href={l.href}
-                    className="text-sm no-underline transition-colors hover:text-[var(--text-primary)]"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
+                  <a href={l.href} className="text-sm no-underline transition-colors hover:text-[var(--text-primary)]" style={{ color: "var(--text-secondary)" }}>
                     {l.label}
                   </a>
                 </li>
@@ -66,10 +57,7 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div
-          className="mt-12 pt-8 border-t flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
-          style={{ borderColor: "var(--border)" }}
-        >
+        <div className="mt-12 pt-8 border-t flex flex-col gap-4 md:flex-row md:items-center md:justify-between" style={{ borderColor: "var(--border)" }}>
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             Built on Arbitrum &bull; Open Source &bull; Not audited yet — use at your own risk
           </p>
