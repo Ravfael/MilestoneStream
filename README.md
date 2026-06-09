@@ -118,7 +118,7 @@ cd frontend
 npm install
 npm run dev
 ```
-Open **[http://localhost:3000](http://localhost:3000)** in your browser. Connect your wallet using the RainbowKit button (configure MetaMask/Coinbase wallet for Anvil local network).
+Open **[milestone-stream.vercel.app](milestone-stream.vercel.app)** in your browser. Connect your wallet using the RainbowKit button (configure MetaMask/Coinbase wallet for Anvil local network).
 
 ---
 
