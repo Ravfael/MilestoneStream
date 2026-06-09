@@ -1,3 +1,5 @@
+import { FACTORY_ADDRESS } from "./contracts";
+
 export default function Footer() {
   return (
     <footer className="border-t py-16" style={{ borderColor: "var(--border)", background: "var(--background)" }}>
@@ -23,7 +25,7 @@ export default function Footer() {
                 { label: "Docs", href: "https://github.com/Ravfael/MilestoneStream", external: true },
                 { label: "GitHub", href: "https://github.com/Ravfael/MilestoneStream", external: true },
                 { label: "Arbitrum", href: "https://arbitrum.io", external: true },
-                { label: "Contract Addresses", href: "/docs/contracts", external: false },
+                { label: "Contract Addresses", href: `https://sepolia.etherscan.io/address/${FACTORY_ADDRESS}`, external: true },
               ].map((l) => (
                 <li key={l.label}>
                   <a href={l.href} {...(l.external ? { target: "_blank", rel: "noopener noreferrer" } : {})} className="text-sm no-underline transition-colors hover:text-[var(--text-primary)]" style={{ color: "var(--text-secondary)" }}>

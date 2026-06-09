@@ -230,6 +230,23 @@ export default function ExplorePage() {
   // Merge with mock escrows if empty, to ensure the UI looks great for testing
   const allDisplayEscrows = escrows.length > 0 ? escrows : MOCK_ESCROWS;
 
+  // Stats calculation
+  const activeCount = allDisplayEscrows.filter((e) => e.status === "active").length;
+  const completedCount = allDisplayEscrows.filter((e) => e.status === "completed").length;
+  const totalLocked = allDisplayEscrows
+    .filter((e) => e.status !== "completed" && e.status !== "cancelled")
+    .reduce((sum, e) => sum + e.amount, 0);
+
+  const formatUSDCLocked = (amount: number) => {
+    if (amount >= 1_000_000) {
+      return (amount / 1_000_000).toFixed(1).replace(/\.0$/, "") + "M";
+    }
+    if (amount >= 1_000) {
+      return (amount / 1_000).toFixed(1).replace(/\.0$/, "") + "K";
+    }
+    return amount.toLocaleString();
+  };
+
   // Filtering Logic
   const filteredEscrows = allDisplayEscrows.filter((escrow) => {
     // Tab Filter
@@ -274,17 +291,29 @@ export default function ExplorePage() {
             {/* Stats Row */}
             <div className="flex flex-wrap gap-8 items-center text-[var(--text-primary)]">
               <div className="flex flex-col">
-                <span className="text-2xl font-bold mono">156</span>
+                {loading ? (
+                  <div className="h-8 bg-[var(--border)] rounded-md w-12 animate-pulse opacity-40 mb-1"></div>
+                ) : (
+                  <span className="text-2xl font-bold mono">{activeCount}</span>
+                )}
                 <span className="text-sm text-[var(--text-muted)] font-medium uppercase tracking-wide">Active</span>
               </div>
               <div className="w-px h-10 bg-[var(--border)] hidden sm:block"></div>
               <div className="flex flex-col">
-                <span className="text-2xl font-bold mono">89</span>
+                {loading ? (
+                  <div className="h-8 bg-[var(--border)] rounded-md w-12 animate-pulse opacity-40 mb-1"></div>
+                ) : (
+                  <span className="text-2xl font-bold mono">{completedCount}</span>
+                )}
                 <span className="text-sm text-[var(--text-muted)] font-medium uppercase tracking-wide">Completed</span>
               </div>
               <div className="w-px h-10 bg-[var(--border)] hidden sm:block"></div>
               <div className="flex flex-col">
-                <span className="text-2xl font-bold mono text-[var(--primary)]">1.2M</span>
+                {loading ? (
+                  <div className="h-8 bg-[var(--border)] rounded-md w-20 animate-pulse opacity-40 mb-1"></div>
+                ) : (
+                  <span className="text-2xl font-bold mono text-[var(--primary)]">{formatUSDCLocked(totalLocked)}</span>
+                )}
                 <span className="text-sm text-[var(--text-muted)] font-medium uppercase tracking-wide">Total USDC Locked</span>
               </div>
             </div>
