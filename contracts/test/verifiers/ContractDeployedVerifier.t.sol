@@ -33,7 +33,7 @@ contract ContractDeployedVerifierTest is Test {
     }
 
     // 1. ContractDeployedVerifier tests
-    function test_ContractDeployed_CodeLengthCheck() public {
+    function test_ContractDeployed_CodeLengthCheck() public view {
         // EOA has no code
         address eoa = address(0x999);
         assertFalse(codeVerifier.verify(abi.encode(eoa)));

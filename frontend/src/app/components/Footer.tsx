@@ -1,3 +1,5 @@
+import Link from "next/link";
+import Image from "next/image";
 import { FACTORY_ADDRESS } from "./contracts";
 
 export default function Footer() {
@@ -7,9 +9,9 @@ export default function Footer() {
         <div className="grid gap-12 md:grid-cols-4">
           {/* Brand */}
           <div className="md:col-span-2">
-            <a href="/" className="inline-flex items-center no-underline mb-4" id="footer-logo">
-              <img src="/logo.png" alt="MilestoneStream" className="h-8 w-auto" />
-            </a>
+            <Link href="/" className="inline-flex items-center no-underline mb-4" id="footer-logo">
+              <Image src="/logo.png" alt="MilestoneStream" width={150} height={32} className="h-8 w-auto" />
+            </Link>
             <p className="text-sm leading-relaxed max-w-sm" style={{ color: "var(--text-secondary)" }}>
               Trustless milestone-based escrow on Arbitrum. Fund builders, release on delivery. No middlemen.
             </p>

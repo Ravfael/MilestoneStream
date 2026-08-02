@@ -54,9 +54,9 @@ contract TVLVerifierTest is Test {
         MockPriceFeed feed = new MockPriceFeed(8, 100000000);
 
         // Required USD: $1,000 USD (in 18 decimals) = 1000 * 10^18
-        uint256 requiredUSD = 1000 * 1e18;
+        uint256 requiredUsd = 1000 * 1e18;
 
-        bytes memory params = abi.encode(targetContract, address(usdc), address(feed), requiredUSD);
+        bytes memory params = abi.encode(targetContract, address(usdc), address(feed), requiredUsd);
 
         // Case 1: Target has 999 USDC ($999 USD value) -> should return false
         usdc.mint(targetContract, 999 * 1e6);
@@ -73,9 +73,9 @@ contract TVLVerifierTest is Test {
         MockPriceFeed feed = new MockPriceFeed(8, 250000000);
 
         // Required USD: $5,000 USD (in 18 decimals) = 5000 * 1e18
-        uint256 requiredUSD = 5000 * 1e18;
+        uint256 requiredUsd = 5000 * 1e18;
 
-        bytes memory params = abi.encode(targetContract, address(token18), address(feed), requiredUSD);
+        bytes memory params = abi.encode(targetContract, address(token18), address(feed), requiredUsd);
 
         // Target needs at least 2000 tokens (2000 * 2.5 = 5000 USD)
         // Case 1: Target has 1999 tokens ($4997.50 USD value) -> should return false
@@ -89,9 +89,9 @@ contract TVLVerifierTest is Test {
 
     function test_TVLVerifier_NegativePrice_ReturnsFalse() public {
         MockPriceFeed feed = new MockPriceFeed(8, -100);
-        uint256 requiredUSD = 100 * 1e18;
+        uint256 requiredUsd = 100 * 1e18;
 
-        bytes memory params = abi.encode(targetContract, address(usdc), address(feed), requiredUSD);
+        bytes memory params = abi.encode(targetContract, address(usdc), address(feed), requiredUsd);
         usdc.mint(targetContract, 1000 * 1e6);
 
         assertFalse(tvlVerifier.verify(params));

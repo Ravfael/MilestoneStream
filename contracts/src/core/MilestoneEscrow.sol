@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity ^0.8.28;
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -62,18 +62,30 @@ contract MilestoneEscrow is ReentrancyGuard {
     event EscrowCancelled();
 
     modifier onlyBuilder() {
-        require(msg.sender == builder, "Not builder");
+        _onlyBuilder();
         _;
+    }
+
+    function _onlyBuilder() internal view {
+        require(msg.sender == builder, "Not builder");
     }
 
     modifier onlyFunder() {
-        require(msg.sender == funder, "Not funder");
+        _onlyFunder();
         _;
     }
 
+    function _onlyFunder() internal view {
+        require(msg.sender == funder, "Not funder");
+    }
+
     modifier onlyArbiter() {
-        require(msg.sender == arbiter, "Not arbiter");
+        _onlyArbiter();
         _;
+    }
+
+    function _onlyArbiter() internal view {
+        require(msg.sender == arbiter, "Not arbiter");
     }
 
     constructor(address _funder, address _builder, address _token, address _arbiter, Milestone[] memory _milestones) {

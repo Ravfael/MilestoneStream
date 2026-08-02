@@ -14,7 +14,7 @@ import { MILESTONE_ESCROW_ABI, VERIFIER_ADDRESSES, getContractEventsChunked } fr
 import { decodeAbiParameters } from "viem";
 
 // Mock Data
-const MOCK_ESCROW = {
+const MOCK_ESCROW: EscrowDetail = {
   id: "arbitrum-defi-grant",
   title: "DeFi Analytics Dashboard Grant",
   description: "A comprehensive grant program to build an analytics dashboard for DeFi protocols on Arbitrum, tracking TVL, volume, and active users across top DEXes.",
@@ -90,15 +90,60 @@ const formatAddress = (address: string) => {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 };
 
+export interface MilestoneDetail {
+  id: string;
+  index: number;
+  title: string;
+  type: MilestoneType;
+  description: string;
+  verifierDetails: string;
+  verifierAddress?: string;
+  verifierParams?: string;
+  amount: number;
+  status: string;
+  deadline?: string;
+}
+
+export interface ActivityLogItem {
+  id: string;
+  event: string;
+  time: string;
+  txHash: string;
+}
+
+export interface EscrowDetail {
+  id: string;
+  status: StatusType;
+  title: string;
+  description: string;
+  network: string;
+  token: string;
+  totalLocked: number;
+  releasedAmount: number;
+  remainingAmount: number;
+  usdRate: number;
+  tags: string[];
+  funderAddress?: string;
+  builderAddress?: string;
+  funder: { address: string; avatar: string };
+  builder: { address: string; avatar: string };
+  createdDate: string;
+  deadline?: string;
+  milestones: MilestoneDetail[];
+  activityLog: ActivityLogItem[];
+  hasDispute?: boolean;
+  disputeDetails?: { challenge: string; deadline: string; arbiter: string };
+}
+
 export default function EscrowDetailPage() {
   const params = useParams();
   const escrowAddress = params?.id as string;
 
   const { connected, address } = useWallet();
   const [demoUserRole, setDemoUserRole] = useState<"visitor" | "funder" | "builder">("visitor");
-  const [escrowState, setEscrowState] = useState<any>(null);
+  const [escrowState, setEscrowState] = useState<EscrowDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedProofMilestone, setSelectedProofMilestone] = useState<any>(null);
+  const [selectedProofMilestone, setSelectedProofMilestone] = useState<MilestoneDetail | null>(null);
 
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
@@ -135,11 +180,6 @@ export default function EscrowDetailPage() {
           abi: MILESTONE_ESCROW_ABI,
           functionName: "builder",
         });
-        const token = await publicClient.readContract({
-          address: escrowAddress as `0x${string}`,
-          abi: MILESTONE_ESCROW_ABI,
-          functionName: "token",
-        });
         const totalAmountRaw = await publicClient.readContract({
           address: escrowAddress as `0x${string}`,
           abi: MILESTONE_ESCROW_ABI,
@@ -157,7 +197,7 @@ export default function EscrowDetailPage() {
         });
 
         // Fetch milestones
-        const milestonesList: any[] = [];
+        const milestonesList: unknown[] = [];
         let i = 0;
         while (true) {
           try {
@@ -169,7 +209,7 @@ export default function EscrowDetailPage() {
             });
             milestonesList.push(m);
             i++;
-          } catch (e) {
+          } catch {
             break;
           }
         }
@@ -182,11 +222,11 @@ export default function EscrowDetailPage() {
         };
         const statusStr = statusMap[statusRaw as number] || "active";
 
-        const getMilestoneType = (verifierAddr: string): string => {
+        const getMilestoneType = (verifierAddr: string): MilestoneType => {
           const lower = verifierAddr.toLowerCase();
           for (const [type, addr] of Object.entries(VERIFIER_ADDRESSES)) {
             if (addr.toLowerCase() === lower) {
-              return type;
+              return type as MilestoneType;
             }
           }
           return "deadline";
@@ -194,29 +234,36 @@ export default function EscrowDetailPage() {
 
         const milestonesFormatted = milestonesList.map((m, idx) => {
           let milestoneStatusStr = "pending";
-          if (m[6] === 1) milestoneStatusStr = "claimed";
-          else if (m[6] === 2) milestoneStatusStr = "verified";
-          else if (m[6] === 3) milestoneStatusStr = "disputed";
-          else if (m[6] === 4) milestoneStatusStr = "expired";
+          const mArray = Array.isArray(m) ? m : [];
+          const mStatus = mArray[6] !== undefined ? mArray[6] : (m as Record<string, unknown>).status;
+          const mTitle = mArray[0] !== undefined ? mArray[0] : (m as Record<string, unknown>).title;
+          const mDesc = mArray[1] !== undefined ? mArray[1] : (m as Record<string, unknown>).description;
+          const mAmount = mArray[2] !== undefined ? mArray[2] : (m as Record<string, unknown>).amount;
+          const mVerifier = mArray[3] !== undefined ? mArray[3] : (m as Record<string, unknown>).verifier;
+          const mVerifierParams = mArray[4] !== undefined ? mArray[4] : (m as Record<string, unknown>).verifierParams;
+          const mDeadline = mArray[5] !== undefined ? mArray[5] : (m as Record<string, unknown>).deadline;
+
+          if (mStatus === 1) milestoneStatusStr = "claimed";
+          else if (mStatus === 2) milestoneStatusStr = "verified";
+          else if (mStatus === 3) milestoneStatusStr = "disputed";
+          else if (mStatus === 4) milestoneStatusStr = "expired";
 
           return {
             id: `m-${idx}`,
             index: idx,
-            title: m[0] || `Milestone ${idx + 1}`,
-            type: getMilestoneType(m[3]),
-            description: m[1] || "Automated milestone verification.",
-            verifierDetails: `Verifier address: ${m[3]}`,
-            verifierAddress: m[3],
-            verifierParams: m[4],
-            amount: Number(m[2]) / 1e6,
+            title: (mTitle as string) || `Milestone ${idx + 1}`,
+            type: getMilestoneType((mVerifier as string) || ""),
+            description: (mDesc as string) || "Automated milestone verification.",
+            verifierDetails: `Verifier address: ${mVerifier}`,
+            verifierAddress: (mVerifier as string) || "",
+            verifierParams: (mVerifierParams as string) || "0x",
+            amount: Number(mAmount) / 1e6,
             status: milestoneStatusStr,
-            deadline: m[5] > 0 ? new Date(Number(m[5]) * 1000).toLocaleDateString() : undefined,
+            deadline: Number(mDeadline) > 0 ? new Date(Number(mDeadline) * 1000).toLocaleDateString() : undefined,
           };
         });
 
-        const activeDispute = milestonesFormatted.find((m) => m.status === "disputed");
-
-        let activityLog = [{ id: "al0", event: "Escrow Created & Funded", time: "Just now", txHash: escrowAddress }];
+        let activityLog: ActivityLogItem[] = [{ id: "al0", event: "Escrow Created & Funded", time: "Just now", txHash: escrowAddress }];
         try {
           const logs = await getContractEventsChunked(publicClient, {
             address: escrowAddress as `0x${string}`,
@@ -225,9 +272,10 @@ export default function EscrowDetailPage() {
 
           if (logs && logs.length > 0) {
             const sortedLogs = [...logs].reverse();
-            activityLog = sortedLogs.map((log: any, idx) => {
+            activityLog = sortedLogs.map((log, idx) => {
+              const logObj = log as Record<string, unknown> & { args?: { milestoneIndex?: bigint; builderWins?: boolean }; eventName?: string; transactionHash?: string };
               let eventDesc = "";
-              const mIdx = log.args.milestoneIndex !== undefined ? Number(log.args.milestoneIndex) + 1 : null;
+              const mIdx = logObj.args?.milestoneIndex !== undefined ? Number(logObj.args.milestoneIndex) + 1 : null;
               
               if (log.eventName === "EscrowCreated") {
                 eventDesc = "Escrow Created & Funded";
@@ -238,18 +286,18 @@ export default function EscrowDetailPage() {
               } else if (log.eventName === "MilestoneDisputed") {
                 eventDesc = `Milestone ${mIdx} Disputed`;
               } else if (log.eventName === "DisputeResolved") {
-                eventDesc = `Dispute ${mIdx} Resolved (${log.args.builderWins ? "Builder Wins" : "Funder Wins"})`;
+                eventDesc = `Dispute ${mIdx} Resolved (${logObj.args?.builderWins ? "Builder Wins" : "Funder Wins"})`;
               } else if (log.eventName === "EscrowCancelled") {
                 eventDesc = "Escrow Cancelled";
               } else {
-                eventDesc = log.eventName;
+                eventDesc = log.eventName || "";
               }
 
               return {
                 id: `log-${idx}`,
                 event: eventDesc,
                 time: `Block #${log.blockNumber}`,
-                txHash: log.transactionHash,
+                txHash: logObj.transactionHash || "",
               };
             });
           }
@@ -257,13 +305,15 @@ export default function EscrowDetailPage() {
           console.error("Failed to fetch event logs", err);
         }
 
+        const activeDispute = milestonesFormatted.find((m) => m.status === "disputed");
+
         setEscrowState({
           id: escrowAddress,
           title: milestonesFormatted[0]?.title ? `${milestonesFormatted[0].title} Escrow` : "Escrow Protocol Contract",
           description: `Decentralized milestone escrow contract clone deployed on Arbitrum at address ${escrowAddress}.`,
           tags: ["Decentralized", "Secure", "Arbitrum"],
           network: "Arbitrum One",
-          status: statusStr,
+          status: statusStr as StatusType,
           totalLocked: Number(totalAmountRaw) / 1e6,
           releasedAmount: Number(releasedRaw) / 1e6,
           remainingAmount: (Number(totalAmountRaw) - Number(releasedRaw)) / 1e6,
@@ -271,8 +321,8 @@ export default function EscrowDetailPage() {
           usdRate: 1,
           createdDate: new Date().toISOString().slice(0, 10),
           deadline: milestonesFormatted[milestonesFormatted.length - 1]?.deadline || "2026-08-30",
-          funder: { address: funder, avatar: "🟣" },
-          builder: { address: builder, avatar: "🟢" },
+          funder: { address: funder as string, avatar: "🟣" },
+          builder: { address: builder as string, avatar: "🟢" },
           milestones: milestonesFormatted,
           activityLog: activityLog,
           hasDispute: !!activeDispute,
@@ -298,8 +348,8 @@ export default function EscrowDetailPage() {
 
   const derivedRole = (() => {
     if (!connected || !address) return "visitor";
-    if (activeEscrow.funder.address.toLowerCase() === address.toLowerCase()) return "funder";
-    if (activeEscrow.builder.address.toLowerCase() === address.toLowerCase()) return "builder";
+    if (activeEscrow.funder?.address?.toLowerCase() === address.toLowerCase()) return "funder";
+    if (activeEscrow.builder?.address?.toLowerCase() === address.toLowerCase()) return "builder";
     return "visitor";
   })();
 
@@ -407,7 +457,7 @@ export default function EscrowDetailPage() {
         </div>
 
         {/* 6. DISPUTE PANEL (Conditional) */}
-        {escrow.hasDispute && (
+        {escrow.hasDispute && escrow.disputeDetails && (
           <div className="bg-[var(--danger-light)] border border-[var(--danger)]/30 rounded-2xl p-5 sm:p-6 flex flex-col sm:flex-row gap-5 items-start shadow-sm animate-slide-in-right">
             <div className="w-12 h-12 rounded-full bg-[var(--danger)]/10 text-[var(--danger)] flex items-center justify-center shrink-0">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -460,7 +510,7 @@ export default function EscrowDetailPage() {
             <p className="text-[var(--text-secondary)] leading-relaxed text-base">{escrow.description}</p>
 
             <div className="flex flex-wrap gap-2 mt-auto">
-              {escrow.tags.map((tag: any) => (
+              {escrow.tags.map((tag: string) => (
                 <span key={tag} className="text-xs font-medium bg-[var(--primary-light)] text-[var(--primary)] px-3 py-1.5 rounded-full">
                   {tag}
                 </span>
@@ -586,7 +636,7 @@ export default function EscrowDetailPage() {
             </h3>
 
             <div className="flex flex-col relative before:absolute before:inset-y-0 before:left-[23px] before:w-0.5 before:bg-[var(--border)] ml-1 mt-2">
-              {escrow.milestones.map((milestone: any, i: number) => {
+              {escrow.milestones.map((milestone: MilestoneDetail, i: number) => {
                 const isClaimed = milestone.status === "claimed";
                 const isVerified = milestone.status === "verified";
                 const isDisputed = milestone.status === "disputed";
@@ -752,7 +802,7 @@ export default function EscrowDetailPage() {
             </h3>
             <div className="card p-0 overflow-hidden shadow-sm border-[var(--border)] sticky top-6">
               <div className="flex flex-col">
-                {escrow.activityLog.map((log: any, index: number) => (
+                {escrow.activityLog.map((log: ActivityLogItem) => (
                   <div key={log.id} className="p-5 border-b border-[var(--border)] last:border-0 hover:bg-[var(--surface)] transition-colors flex items-start gap-4">
                     <div className="mt-0.5 shrink-0 w-8 h-8 rounded-full bg-white border border-[var(--border)] flex items-center justify-center shadow-sm">
                       {log.event.includes("Disputed") && (
@@ -831,7 +881,6 @@ export default function EscrowDetailPage() {
         <ProofModal
           milestone={selectedProofMilestone}
           explorerUrl={explorerUrl}
-          explorerName={explorerName}
           onClose={() => setSelectedProofMilestone(null)}
         />
       )}
@@ -839,7 +888,7 @@ export default function EscrowDetailPage() {
   );
 }
 
-const decodeVerifierParams = (type: string, paramsHex: string) => {
+const decodeVerifierParams = (type: string, paramsHex?: string) => {
   if (!paramsHex || paramsHex === "0x") return null;
   try {
     const hex = paramsHex as `0x${string}`;
@@ -891,14 +940,13 @@ const decodeVerifierParams = (type: string, paramsHex: string) => {
 };
 
 interface ProofModalProps {
-  milestone: any;
+  milestone: MilestoneDetail;
   explorerUrl: string;
-  explorerName: string;
   onClose: () => void;
 }
 
-function ProofModal({ milestone, explorerUrl, explorerName, onClose }: ProofModalProps) {
-  const decoded: any = decodeVerifierParams(milestone.type, milestone.verifierParams);
+function ProofModal({ milestone, explorerUrl, onClose }: ProofModalProps) {
+  const decoded = decodeVerifierParams(milestone.type, milestone.verifierParams);
 
   useEffect(() => {
     document.body.style.overflow = "hidden";
@@ -971,7 +1019,7 @@ function ProofModal({ milestone, explorerUrl, explorerName, onClose }: ProofModa
             
             {decoded ? (
               <div className="flex flex-col gap-3.5 bg-[var(--surface)] p-4 rounded-xl border border-[var(--border)]">
-                {milestone.type === "contract-deploy" && decoded.deployedAddress && (
+                {milestone.type === "contract-deploy" && typeof decoded.deployedAddress === "string" && (
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-[var(--text-secondary)] font-medium">Target Contract Address</span>
                     <a
@@ -985,7 +1033,7 @@ function ProofModal({ milestone, explorerUrl, explorerName, onClose }: ProofModa
                   </div>
                 )}
 
-                {milestone.type === "deadline" && decoded.timestamp && (
+                {milestone.type === "deadline" && typeof decoded.timestamp === "number" && (
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-[var(--text-secondary)] font-medium">Deadline Timestamp</span>
                     <span className="text-sm font-semibold text-[var(--text-primary)]">
@@ -994,7 +1042,7 @@ function ProofModal({ milestone, explorerUrl, explorerName, onClose }: ProofModa
                   </div>
                 )}
 
-                {milestone.type === "tx-count" && (
+                {milestone.type === "tx-count" && typeof decoded.targetContract === "string" && (
                   <div className="flex flex-col gap-2.5">
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-[var(--text-secondary)] font-medium">Target Contract</span>
@@ -1020,7 +1068,7 @@ function ProofModal({ milestone, explorerUrl, explorerName, onClose }: ProofModa
                   </div>
                 )}
 
-                {milestone.type === "tvl" && (
+                {milestone.type === "tvl" && typeof decoded.token === "string" && typeof decoded.priceFeed === "string" && (
                   <div className="flex flex-col gap-2.5">
                     <div className="flex flex-col gap-1">
                       <span className="text-xs text-[var(--text-secondary)] font-medium">Target Contract</span>

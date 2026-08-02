@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.28;
 
-import {Test, console2} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {MilestoneEscrow} from "../src/core/MilestoneEscrow.sol";
 import {MockUSDC} from "../src/mocks/MockUSDC.sol";
 import {TimestampVerifier} from "../src/verifiers/TimestampVerifier.sol";

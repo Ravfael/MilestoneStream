@@ -28,8 +28,8 @@ contract DeployScript is Script {
         address usdcAddress;
         if (block.chainid != 1) {
             // Skip MockUSDC only on Ethereum mainnet
-            MockUSDC mockUSDC = new MockUSDC();
-            usdcAddress = address(mockUSDC);
+            MockUSDC mockUsdc = new MockUSDC();
+            usdcAddress = address(mockUsdc);
         }
 
         vm.stopBroadcast();

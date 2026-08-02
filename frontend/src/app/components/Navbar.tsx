@@ -1,5 +1,7 @@
 "use client";
 import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import WalletConnectButton from "./WalletConnectButton";
 import { useWallet } from "./WalletContext";
 
@@ -44,14 +46,14 @@ export default function Navbar() {
       <div className="mx-auto flex h-full max-w-[1200px] items-center justify-between px-6">
         <div className="flex items-center gap-8">
           {/* Logo */}
-          <a href="/" className="flex items-center no-underline" id="logo">
-            <img src="/logo.png" alt="MilestoneStream" className="h-8 w-auto" />
-          </a>
+          <Link href="/" className="flex items-center no-underline" id="logo">
+            <Image src="/logo.png" alt="MilestoneStream" width={150} height={32} className="h-8 w-auto" />
+          </Link>
 
           {/* Desktop Nav */}
           <div className="hidden items-center gap-1 md:flex"> 
-            <a href="/explore" className="nav-link">Explore</a>
-            <a href="/#how-it-works" className="nav-link">How It Works</a>
+            <Link href="/explore" className="nav-link">Explore</Link>
+            <Link href="/#how-it-works" className="nav-link">How It Works</Link>
             <a href="https://github.com/Ravfael/MilestoneStream" target="_blank" rel="noopener noreferrer" className="nav-link flex items-center gap-1">
               Docs
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -111,7 +113,7 @@ export default function Navbar() {
                   }}
                 >
                   {/* Funder item */}
-                  <a
+                  <Link
                     href="/funder"
                     id="dropdown-goto-funder"
                     className="dd-menu-item"
@@ -123,10 +125,10 @@ export default function Navbar() {
                       <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
                     </svg>
                     Funder Dashboard
-                  </a>
+                  </Link>
 
                   {/* Builder item */}
-                  <a
+                  <Link
                     href="/builder"
                     id="dropdown-goto-builder"
                     className="dd-menu-item"
@@ -137,7 +139,7 @@ export default function Navbar() {
                       <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
                     </svg>
                     Builder Dashboard
-                  </a>
+                  </Link>
 
                   {/* Divider */}
                   <div className="dd-menu-divider" />
@@ -202,8 +204,8 @@ export default function Navbar() {
           style={{ borderColor: "var(--border)" }}
         >
           <div className="flex flex-col gap-2">
-            <a href="/explore" className="nav-link" onClick={() => setMobileOpen(false)}>Explore</a>
-            <a href="/#how-it-works" className="nav-link" onClick={() => setMobileOpen(false)}>How It Works</a>
+            <Link href="/explore" className="nav-link" onClick={() => setMobileOpen(false)}>Explore</Link>
+            <Link href="/#how-it-works" className="nav-link" onClick={() => setMobileOpen(false)}>How It Works</Link>
             <a href="https://github.com/Ravfael/MilestoneStream" target="_blank" rel="noopener noreferrer" className="nav-link flex w-fit items-center gap-1" onClick={() => setMobileOpen(false)}>
               Docs
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -243,7 +245,7 @@ export default function Navbar() {
                 {/* Mobile sub-items — context menu style */}
                 {mobileDashboardOpen && (
                   <div className="dd-mobile-panel animate-fade-in">
-                    <a
+                    <Link
                       href="/funder"
                       className="dd-menu-item"
                       onClick={() => setMobileOpen(false)}
@@ -253,9 +255,9 @@ export default function Navbar() {
                         <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
                       </svg>
                       Funder Dashboard
-                    </a>
+                    </Link>
 
-                    <a
+                    <Link
                       href="/builder"
                       className="dd-menu-item"
                       onClick={() => setMobileOpen(false)}
@@ -264,7 +266,7 @@ export default function Navbar() {
                         <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
                       </svg>
                       Builder Dashboard
-                    </a>
+                    </Link>
 
                     <div className="dd-menu-divider" />
 

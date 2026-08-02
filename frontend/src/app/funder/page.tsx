@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import StatusBadge from "../components/StatusBadge";
+import StatusBadge, { StatusType } from "../components/StatusBadge";
 import AmountDisplay from "../components/AmountDisplay";
 import EmptyState from "../components/EmptyState";
 import TransactionPendingModal from "../components/TransactionPendingModal";
@@ -57,23 +57,38 @@ const MOCK_ESCROWS = [
   },
 ];
 
+export interface FunderEscrow {
+  id: string;
+  name: string;
+  status: StatusType;
+  totalAmount: number;
+  released: number;
+  milestonesTotal: number;
+  milestonesCompleted: number;
+  created: string;
+}
+
 export default function FunderDashboard() {
   const { connected, address, connect } = useWallet();
   const [copied, setCopied] = useState(false);
-  const [escrows, setEscrows] = useState<any[]>([]);
+  const [escrows, setEscrows] = useState<FunderEscrow[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDeployed, setIsDeployed] = useState(false);
   const [statusFilter, setStatusFilter] = useState("All Statuses");
 
   // Modals
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("create") === "true";
+    }
+    return false;
+  });
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("create") === "true") {
-        setIsDrawerOpen(true);
-        // clean up the URL search params so reloads don't reopen it
         const newUrl = window.location.pathname;
         window.history.replaceState({}, "", newUrl);
       }
@@ -120,7 +135,7 @@ export default function FunderDashboard() {
           abi: ESCROW_FACTORY_ABI,
           functionName: "getEscrowsByFunder",
           args: [address as `0x${string}`],
-        })) as any[];
+        })) as `0x${string}`[];
 
         if (!addresses || addresses.length === 0) {
           setEscrows([]);
@@ -132,13 +147,8 @@ export default function FunderDashboard() {
         const reversedAddresses = [...addresses].reverse();
 
         const escrowData = await Promise.all(
-          reversedAddresses.map(async (addr) => {
+          reversedAddresses.map(async (addr): Promise<FunderEscrow | null> => {
             try {
-              const builder = await publicClient.readContract({
-                address: addr as `0x${string}`,
-                abi: MILESTONE_ESCROW_ABI,
-                functionName: "builder",
-              });
               const totalAmountRaw = await publicClient.readContract({
                 address: addr as `0x${string}`,
                 abi: MILESTONE_ESCROW_ABI,
@@ -156,7 +166,7 @@ export default function FunderDashboard() {
               });
 
               // Try/catch loop to fetch milestones
-              const milestones: any[] = [];
+              const milestones: unknown[] = [];
               let i = 0;
               while (true) {
                 try {
@@ -168,7 +178,7 @@ export default function FunderDashboard() {
                   });
                   milestones.push(milestone);
                   i++;
-                } catch (e) {
+                } catch {
                   break;
                 }
               }
@@ -183,12 +193,12 @@ export default function FunderDashboard() {
 
               const now = Math.floor(Date.now() / 1000);
               const pendingMilestones = milestones.filter(m => {
-                const status = Array.isArray(m) ? m[6] : m.status;
+                const status = Array.isArray(m) ? m[6] : (m as Record<string, unknown>).status;
                 return Number(status) !== 2;
               });
               
               const allPendingExpired = pendingMilestones.length > 0 && pendingMilestones.every(m => {
-                const deadline = Number(Array.isArray(m) ? m[5] : m.deadline);
+                const deadline = Number(Array.isArray(m) ? m[5] : (m as Record<string, unknown>).deadline);
                 return deadline > 0 && now > deadline;
               });
 
@@ -199,18 +209,18 @@ export default function FunderDashboard() {
               // milestone status: 0 = active/pending, 1 = completed, 2 = cancelled, 3 = disputed
               const completedCount = milestones.filter(
                 (m) => {
-                  const status = Array.isArray(m) ? m[6] : m.status;
+                  const status = Array.isArray(m) ? m[6] : (m as Record<string, unknown>).status;
                   return Number(status) === 2;
                 }
               ).length;
 
-              const firstTitle = milestones[0] ? (Array.isArray(milestones[0]) ? milestones[0][0] : milestones[0].title) : "Untitled Escrow";
+              const firstTitle = milestones[0] ? (Array.isArray(milestones[0]) ? milestones[0][0] : (milestones[0] as Record<string, unknown>).title) : "Untitled Escrow";
               const escrowTitle = milestones.length > 1 ? `${firstTitle} (Multi-Step)` : firstTitle;
 
               return {
-                id: addr,
-                name: escrowTitle,
-                status: statusStr,
+                id: addr as string,
+                name: escrowTitle as string,
+                status: statusStr as StatusType,
                 totalAmount: Number(totalAmountRaw) / 1e6,
                 released: Number(releasedRaw) / 1e6,
                 milestonesTotal: milestones.length,
@@ -224,7 +234,7 @@ export default function FunderDashboard() {
           }),
         );
 
-        setEscrows(escrowData.filter((e) => e !== null) as any[]);
+        setEscrows(escrowData.filter((e): e is FunderEscrow => e !== null));
       } catch (e) {
         console.error("Failed to fetch funder escrows", e);
       } finally {
@@ -263,7 +273,19 @@ export default function FunderDashboard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleDeployEscrow = async (data: any) => {
+  const handleDeployEscrow = async (data: {
+    title: string;
+    description: string;
+    builderWallet: string;
+    totalAmount: string;
+    milestones: Array<{
+      type: string;
+      description: string;
+      params: string;
+      amount: string;
+      deadline: string;
+    }>;
+  }) => {
     setIsDrawerOpen(false);
     setTxModalState({ isOpen: true, state: "pending", txHash: "" });
 
@@ -271,7 +293,7 @@ export default function FunderDashboard() {
       if (!publicClient) throw new Error("Public client not available");
 
       // 1. Format the milestones for the contract
-      const formattedMilestones = data.milestones.map((m: any) => {
+      const formattedMilestones = data.milestones.map((m) => {
         const verifierAddr = VERIFIER_ADDRESSES[m.type] || VERIFIER_ADDRESSES["deadline"];
         const verifierParams = encodeVerifierParams(m.type, m.params, m.deadline);
         const amountRaw = BigInt(Math.floor(parseFloat(m.amount) * 1e6)); // USDC uses 6 decimals
@@ -309,7 +331,7 @@ export default function FunderDashboard() {
         logs: deployReceipt.logs,
       });
 
-      const newEscrowAddress = (logs[0] as any)?.args?.escrow;
+      const newEscrowAddress = (logs[0] as unknown as { args: { escrow: `0x${string}` } })?.args?.escrow;
       if (!newEscrowAddress) throw new Error("Escrow address not found in event logs");
 
       // 3. Approve MockUSDC to transfer the total amount to the new escrow address
@@ -337,7 +359,7 @@ export default function FunderDashboard() {
       setTxModalState({ isOpen: true, state: "confirmed", txHash: lockHash });
 
       // Refresh list
-      const addresses = await publicClient.readContract({
+      await publicClient.readContract({
         address: FACTORY_ADDRESS as `0x${string}`,
         abi: ESCROW_FACTORY_ABI,
         functionName: "getEscrowsByFunder",
@@ -470,7 +492,7 @@ export default function FunderDashboard() {
                     <tr key={escrow.id} className="border-b border-[var(--border)] hover:bg-[var(--surface)] transition-colors">
                       <td className="p-4 font-medium text-[var(--text-primary)]">{escrow.name}</td>
                       <td className="p-4">
-                        <StatusBadge status={escrow.status as any} />
+                        <StatusBadge status={escrow.status as StatusType} />
                       </td>
                       <td className="p-4 text-right">
                         <AmountDisplay amount={escrow.totalAmount} token="USDC" />

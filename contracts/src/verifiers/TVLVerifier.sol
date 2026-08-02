@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.28;
+pragma solidity ^0.8.28;
 
 import {IVerifier} from "../interfaces/IVerifier.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -23,7 +23,7 @@ interface AggregatorV3Interface {
 /// @notice Verifies token TVL scaled to 18-decimal precision.
 contract TVLVerifier is IVerifier {
     function verify(bytes calldata params) external view override returns (bool) {
-        (address targetContract, address token, address priceFeed, uint256 requiredUSDValue) =
+        (address targetContract, address token, address priceFeed, uint256 requiredUsdValue) =
             abi.decode(params, (address, address, address, uint256));
 
         uint256 balance = IERC20(token).balanceOf(targetContract);
@@ -37,9 +37,11 @@ contract TVLVerifier is IVerifier {
         uint8 tokenDecimals = success && data.length > 0 ? abi.decode(data, (uint8)) : 18;
 
         // Uniformly scale to 18 decimal places for TVL calculation to prevent decimal scaling bugs
+        // casting to 'uint256' is safe because price > 0 check is performed above
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 tvl = (balance * uint256(price) * 1e18) / (10 ** tokenDecimals) / (10 ** feedDecimals);
 
-        return tvl >= requiredUSDValue;
+        return tvl >= requiredUsdValue;
     }
 
     function getVerifierType() external pure override returns (string memory) {

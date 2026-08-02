@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useAccount, useDisconnect } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 
@@ -16,20 +16,24 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | null>(null);
 
+const emptySubscribe = () => () => {};
+function useIsMounted() {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+}
+
 export function WalletProvider({ children }: { children: ReactNode }) {
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const { openConnectModal } = useConnectModal();
   const [role, setRole] = useState<WalletRole>("funder");
 
-  // Prevent SSR hydration mismatch by storing connection state in a client-side hook
-  const [isClientConnected, setIsClientConnected] = useState(false);
-  const [clientAddress, setClientAddress] = useState("");
-
-  useEffect(() => {
-    setIsClientConnected(isConnected);
-    setClientAddress(address || "");
-  }, [isConnected, address]);
+  const isMounted = useIsMounted();
+  const connected = isMounted ? isConnected : false;
+  const clientAddress = isMounted ? (address || "") : "";
 
   const connect = () => {
     if (openConnectModal) {
@@ -40,7 +44,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <WalletContext.Provider
       value={{
-        connected: isClientConnected,
+        connected,
         address: clientAddress,
         role,
         connect,

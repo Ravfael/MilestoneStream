@@ -78,6 +78,50 @@ function StatCard({ title, value, subtitle, isAlert = false, valueColor }: { tit
   );
 }
 
+export interface BuilderMilestone {
+  index: number;
+  id: string;
+  title: string;
+  type: MilestoneType;
+  condition: string;
+  amount: number;
+  status: string;
+}
+
+export interface ReleaseEvent {
+  id: string;
+  date: string;
+  escrow: string;
+  milestone: string;
+  amount: number;
+  txHash: string;
+  fullHash: string;
+  blockNumber: bigint;
+}
+
+export interface BuilderEscrow {
+  id: string;
+  title: string;
+  funderAddress: string;
+  totalAmount: number;
+  receivedAmount: number;
+  status: StatusType;
+  milestones: BuilderMilestone[];
+  releases?: ReleaseEvent[];
+}
+
+const CONFETTI_COLORS = ['#22c55e', '#3b82f6', '#eab308', '#ec4899'];
+const CONFETTI_ITEMS = Array.from({ length: 30 }, (_, i) => {
+  const angle = (i / 30) * 360;
+  const distance = 100 + ((i * 37) % 150);
+  const rad = (angle * Math.PI) / 180;
+  return {
+    color: CONFETTI_COLORS[i % 4],
+    tx: `${Math.cos(rad) * distance}px`,
+    ty: `${Math.sin(rad) * distance}px`,
+  };
+});
+
 function ClaimModal({ 
   isOpen, 
   onClose, 
@@ -86,20 +130,20 @@ function ClaimModal({
 }: { 
   isOpen: boolean; 
   onClose: () => void; 
-  milestone: any; 
-  escrow: any 
+  milestone: BuilderMilestone | null; 
+  escrow: BuilderEscrow | null; 
 }) {
   const [claimState, setClaimState] = useState<"idle" | "verifying" | "verified" | "claiming" | "success">("idle");
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
   const { writeContractAsync } = useWriteContract();
   const publicClient = usePublicClient();
 
-  useEffect(() => {
-    if (isOpen) {
-      setClaimState("idle");
-    }
-  }, [isOpen]);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
+    if (isOpen) setClaimState("idle");
+  }
 
-  if (!isOpen || !milestone) return null;
+  if (!isOpen || !milestone || !escrow) return null;
 
   const handleClaim = async () => {
     if (!publicClient) return;
@@ -127,18 +171,18 @@ function ClaimModal({
         {claimState === "success" && (
           <div className="absolute inset-0 pointer-events-none flex items-center justify-center overflow-hidden">
             <div className="w-full h-full relative">
-              {[...Array(30)].map((_, i) => (
+              {CONFETTI_ITEMS.map((item, i) => (
                 <div 
                   key={i} 
                   className="absolute w-2 h-2 rounded-full"
                   style={{
-                    backgroundColor: ['#22c55e', '#3b82f6', '#eab308', '#ec4899'][Math.floor(Math.random() * 4)],
+                    backgroundColor: item.color,
                     left: '50%',
                     top: '50%',
                     animation: `confetti 1s ease-out forwards`,
                     transformOrigin: 'center',
-                    '--tx': `${(Math.random() - 0.5) * 300}px`,
-                    '--ty': `${(Math.random() - 0.5) * 300}px`,
+                    '--tx': item.tx,
+                    '--ty': item.ty,
                   } as React.CSSProperties}
                 />
               ))}
@@ -211,11 +255,11 @@ export default function BuilderDashboard() {
   const { connected, address, connect } = useWallet();
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<"escrows" | "history">("escrows");
-  const [escrows, setEscrows] = useState<any[]>([]);
-  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [escrows, setEscrows] = useState<BuilderEscrow[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<ReleaseEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDeployed, setIsDeployed] = useState(false);
-  const [claimModalData, setClaimModalData] = useState<{ isOpen: boolean; milestone: any; escrow: any }>({
+  const [claimModalData, setClaimModalData] = useState<{ isOpen: boolean; milestone: BuilderMilestone | null; escrow: BuilderEscrow | null }>({
     isOpen: false,
     milestone: null,
     escrow: null
@@ -253,7 +297,7 @@ export default function BuilderDashboard() {
           abi: ESCROW_FACTORY_ABI,
           functionName: "getEscrowsByBuilder",
           args: [address as `0x${string}`],
-        })) as any[];
+        })) as `0x${string}`[];
 
         if (!addresses || addresses.length === 0) {
           setEscrows([]);
@@ -265,7 +309,7 @@ export default function BuilderDashboard() {
         const reversedAddresses = [...addresses].reverse();
 
         const escrowData = await Promise.all(
-          reversedAddresses.map(async (addr) => {
+          reversedAddresses.map(async (addr): Promise<BuilderEscrow | null> => {
             try {
               const funder = await publicClient.readContract({
                 address: addr as `0x${string}`,
@@ -289,7 +333,7 @@ export default function BuilderDashboard() {
               });
 
               // Try/catch loop to fetch milestones
-              const milestonesList: any[] = [];
+              const milestonesList: unknown[] = [];
               let i = 0;
               while (true) {
                 try {
@@ -301,7 +345,7 @@ export default function BuilderDashboard() {
                   });
                   milestonesList.push(m);
                   i++;
-                } catch (e) {
+                } catch {
                   break;
                 }
               }
@@ -316,12 +360,12 @@ export default function BuilderDashboard() {
 
               const now = Math.floor(Date.now() / 1000);
               const pendingMilestones = milestonesList.filter(m => {
-                const status = Array.isArray(m) ? m[6] : m.status;
+                const status = Array.isArray(m) ? m[6] : (m as Record<string, unknown>).status;
                 return Number(status) !== 2;
               });
 
               const allPendingExpired = pendingMilestones.length > 0 && pendingMilestones.every(m => {
-                const deadline = Number(Array.isArray(m) ? m[5] : m.deadline);
+                const deadline = Number(Array.isArray(m) ? m[5] : (m as Record<string, unknown>).deadline);
                 return deadline > 0 && now > deadline;
               });
 
@@ -329,7 +373,7 @@ export default function BuilderDashboard() {
                 statusStr = "expired";
               }
 
-              const getMilestoneType = (verifierAddr: string): string => {
+              const getMilestoneType = (verifierAddr: string): MilestoneType => {
                 const lower = verifierAddr.toLowerCase();
                 if (lower === "0x5fbdb2315678afecb367f032d93f642f64180aa3") return "contract-deploy";
                 if (lower === "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512") return "deadline";
@@ -338,18 +382,18 @@ export default function BuilderDashboard() {
                 return "deadline"; // fallback
               };
 
-              const firstTitle = milestonesList[0]?.[0] || "Untitled Escrow";
+              const firstTitle = (Array.isArray(milestonesList[0]) ? milestonesList[0][0] : (milestonesList[0] as Record<string, unknown>)?.title) as string || "Untitled Escrow";
               const escrowTitle = milestonesList.length > 1 ? `${firstTitle} (Multi-Step)` : firstTitle;
 
               const milestonesFormatted = milestonesList.map((m, idx) => {
                 let milestoneUIStatus = "pending";
                 
-                const titleVal = Array.isArray(m) ? m[0] : m.title;
-                const conditionVal = Array.isArray(m) ? m[1] : m.description;
-                const amountVal = Number(Array.isArray(m) ? m[2] : m.amount) / 1e6;
-                const verifierVal = Array.isArray(m) ? m[3] : m.verifier;
-                const deadlineVal = Number(Array.isArray(m) ? m[5] : m.deadline);
-                const statusVal = Number(Array.isArray(m) ? m[6] : m.status);
+                const titleVal = (Array.isArray(m) ? m[0] : (m as Record<string, unknown>).title) as string;
+                const conditionVal = (Array.isArray(m) ? m[1] : (m as Record<string, unknown>).description) as string;
+                const amountVal = Number(Array.isArray(m) ? m[2] : (m as Record<string, unknown>).amount) / 1e6;
+                const verifierVal = (Array.isArray(m) ? m[3] : (m as Record<string, unknown>).verifier) as string;
+                const deadlineVal = Number(Array.isArray(m) ? m[5] : (m as Record<string, unknown>).deadline);
+                const statusVal = Number(Array.isArray(m) ? m[6] : (m as Record<string, unknown>).status);
 
                 const isExpired = deadlineVal > 0 && Math.floor(Date.now() / 1000) > deadlineVal;
 
@@ -363,7 +407,7 @@ export default function BuilderDashboard() {
                   index: idx,
                   id: `m-${idx}`,
                   title: titleVal || `Milestone ${idx + 1}`,
-                  type: getMilestoneType(verifierVal) as MilestoneType,
+                  type: getMilestoneType(verifierVal || ""),
                   condition: conditionVal || "Automated verification",
                   amount: amountVal,
                   status: milestoneUIStatus,
@@ -371,27 +415,29 @@ export default function BuilderDashboard() {
               });
 
               // Fetch MilestoneReleased events for this escrow
-              let releaseEvents: any[] = [];
+              let releaseEvents: ReleaseEvent[] = [];
               try {
                 const logs = await getContractEventsChunked(publicClient, {
                   address: addr as `0x${string}`,
                   abi: MILESTONE_ESCROW_ABI,
                 });
 
-                const releaseLogs = logs.filter((log: any) => log.eventName === "MilestoneReleased");
+                const releaseLogs = logs.filter((log) => log.eventName === "MilestoneReleased");
 
-                releaseEvents = releaseLogs.map((log: any) => {
-                  const mIdx = Number(log.args.milestoneIndex);
+                releaseEvents = releaseLogs.map((log) => {
+                  const logObj = log as Record<string, unknown> & { args?: { milestoneIndex?: bigint; amount?: bigint }; transactionHash?: string };
+                  const mIdx = Number(logObj.args?.milestoneIndex ?? 0);
                   const mTitle = milestonesFormatted[mIdx]?.title || `Milestone ${mIdx + 1}`;
+                  const txHash = logObj.transactionHash || "0x0000000000000000000000000000000000000000";
                   return {
-                    id: `${log.transactionHash}-${mIdx}`,
+                    id: `${txHash}-${mIdx}`,
                     date: `Block #${log.blockNumber}`,
                     escrow: escrowTitle,
                     milestone: mTitle,
-                    amount: Number(log.args.amount) / 1e6,
-                    txHash: `${log.transactionHash.slice(0, 10)}...`,
-                    fullHash: log.transactionHash,
-                    blockNumber: log.blockNumber,
+                    amount: Number(logObj.args?.amount ?? 0) / 1e6,
+                    txHash: `${txHash.slice(0, 10)}...`,
+                    fullHash: txHash,
+                    blockNumber: BigInt(log.blockNumber || 0),
                   };
                 });
               } catch (err) {
@@ -399,9 +445,9 @@ export default function BuilderDashboard() {
               }
 
               return {
-                id: addr,
+                id: addr as string,
                 title: escrowTitle,
-                funderAddress: funder,
+                funderAddress: funder as string,
                 totalAmount: Number(totalAmountRaw) / 1e6,
                 receivedAmount: Number(releasedRaw) / 1e6,
                 status: statusStr as StatusType,
@@ -415,11 +461,11 @@ export default function BuilderDashboard() {
           })
         );
 
-        const validEscrows = escrowData.filter((e) => e !== null) as any[];
+        const validEscrows = escrowData.filter((e): e is BuilderEscrow => e !== null);
         setEscrows(validEscrows);
 
         // Aggregate and sort release events for all builder escrows
-        const aggregatedPayments = validEscrows.reduce((acc: any[], escrow: any) => {
+        const aggregatedPayments = validEscrows.reduce((acc: ReleaseEvent[], escrow: BuilderEscrow) => {
           if (escrow.releases) {
             acc.push(...escrow.releases);
           }
@@ -447,19 +493,19 @@ export default function BuilderDashboard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const openClaimModal = (milestone: any, escrow: any) => {
+  const openClaimModal = (milestone: BuilderMilestone, escrow: BuilderEscrow) => {
     setClaimModalData({ isOpen: true, milestone, escrow });
   };
 
   // derived stats
-  const totalReceived = displayEscrows.reduce((sum: number, e: any) => sum + (e.receivedAmount || 0), 0);
-  const activePrograms = displayEscrows.filter((e: any) => e.status === "active").length;
+  const totalReceived = displayEscrows.reduce((sum: number, e: BuilderEscrow) => sum + (e.receivedAmount || 0), 0);
+  const activePrograms = displayEscrows.filter((e: BuilderEscrow) => e.status === "active").length;
   
   let claimableCount = 0;
   let upcomingDeadlines = 0;
   
-  displayEscrows.forEach((e: any) => {
-    e.milestones.forEach((m: any) => {
+  displayEscrows.forEach((e: BuilderEscrow) => {
+    e.milestones.forEach((m: BuilderMilestone) => {
       if (m.status === "claimable") claimableCount++;
       if (m.type === "deadline" && m.status === "upcoming") upcomingDeadlines++;
     });
@@ -602,7 +648,7 @@ export default function BuilderDashboard() {
                   <div className="w-full md:w-2/3 flex flex-col">
                     <h4 className="text-sm font-semibold uppercase tracking-wider text-[var(--text-secondary)] mb-6">Milestone Timeline</h4>
                     <div className="flex flex-col relative before:absolute before:inset-y-0 before:left-3.5 before:w-px before:bg-[var(--border)]">
-                      {escrow.milestones.map((milestone: any, i: number) => {
+                      {escrow.milestones.map((milestone: BuilderMilestone, i: number) => {
                         const isClaimed = milestone.status === 'claimed';
                         const isClaimable = milestone.status === 'claimable';
                         const isDisputed = milestone.status === 'disputed';

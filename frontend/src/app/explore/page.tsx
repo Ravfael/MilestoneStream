@@ -5,6 +5,7 @@ import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import EscrowCard from "../components/EscrowCard";
 import EmptyState from "../components/EmptyState";
+import { StatusType } from "../components/StatusBadge";
 import { MilestoneType } from "../components/MilestoneTypeChip";
 import { usePublicClient } from "wagmi";
 import { FACTORY_ADDRESS, ESCROW_FACTORY_ABI, MILESTONE_ESCROW_ABI } from "../components/contracts";
@@ -83,12 +84,24 @@ const TABS = ["All", "Active", "Completed", "Disputed", "Expired"];
 const SORTS = ["Newest", "Most Funded", "Ending Soon"];
 const NETWORKS = ["All Chains", "Arbitrum One", "Robinhood Chain", "Anvil Local"];
 
+export interface ExploreEscrow {
+  id: string;
+  status: StatusType;
+  title: string;
+  creatorAddress: string;
+  amount: number;
+  completedMilestones: number;
+  totalMilestones: number;
+  milestoneTypes: MilestoneType[];
+  network: string;
+}
+
 export default function ExplorePage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("All");
   const [activeSort, setActiveSort] = useState("Newest");
   const [activeNetwork, setActiveNetwork] = useState("All Chains");
-  const [escrows, setEscrows] = useState<any[]>([]);
+  const [escrows, setEscrows] = useState<ExploreEscrow[]>([]);
   const [loading, setLoading] = useState(true);
 
   const publicClient = usePublicClient();
@@ -118,7 +131,7 @@ export default function ExplorePage() {
           address: FACTORY_ADDRESS as `0x${string}`,
           abi: ESCROW_FACTORY_ABI,
           functionName: "getAllEscrows",
-        })) as any[];
+        })) as `0x${string}`[];
 
         if (!addresses || addresses.length === 0) {
           setEscrows([]);
@@ -128,17 +141,12 @@ export default function ExplorePage() {
 
         // 2. Fetch details for each escrow in parallel
         const escrowData = await Promise.all(
-          addresses.map(async (addr) => {
+          addresses.map(async (addr): Promise<ExploreEscrow | null> => {
             try {
               const funder = await publicClient.readContract({
                 address: addr as `0x${string}`,
                 abi: MILESTONE_ESCROW_ABI,
                 functionName: "funder",
-              });
-              const builder = await publicClient.readContract({
-                address: addr as `0x${string}`,
-                abi: MILESTONE_ESCROW_ABI,
-                functionName: "builder",
               });
               const totalAmountRaw = await publicClient.readContract({
                 address: addr as `0x${string}`,
@@ -152,7 +160,7 @@ export default function ExplorePage() {
               });
 
               // Try/catch loop to fetch milestones
-              const milestones: any[] = [];
+              const milestones: unknown[] = [];
               let i = 0;
               while (true) {
                 try {
@@ -164,7 +172,7 @@ export default function ExplorePage() {
                   });
                   milestones.push(milestone);
                   i++;
-                } catch (e) {
+                } catch {
                   break; // out of bounds
                 }
               }
@@ -180,11 +188,11 @@ export default function ExplorePage() {
 
               // Count completed milestones
               const completedCount = milestones.filter(
-                (m) => m[6] === 2 // Released is status 2
+                (m) => (Array.isArray(m) ? m[6] : (m as Record<string, unknown>).status) === 2 // Released is status 2
               ).length;
 
               // Verifier types mapping
-              const getMilestoneType = (verifierAddr: string): string => {
+              const getMilestoneType = (verifierAddr: string): MilestoneType => {
                 const lower = verifierAddr.toLowerCase();
                 if (lower === "0x5fbdb2315678afecb367f032d93f642f64180aa3") return "contract-deploy";
                 if (lower === "0xe7f1725e7734ce288f8367e1bb143e90bb3f0512") return "deadline";
@@ -193,15 +201,17 @@ export default function ExplorePage() {
                 return "deadline"; // fallback
               };
 
-              const milestoneTypes = milestones.map((m) => getMilestoneType(m[3]));
-              const firstTitle = milestones[0]?.[0] || "Untitled Escrow";
+              const milestoneTypes = milestones.map((m) =>
+                getMilestoneType((Array.isArray(m) ? m[3] : (m as Record<string, unknown>).verifier) as string || "")
+              );
+              const firstTitle = (Array.isArray(milestones[0]) ? milestones[0][0] : (milestones[0] as Record<string, unknown>)?.title) as string || "Untitled Escrow";
               const escrowTitle = milestones.length > 1 ? `${firstTitle} (Multi-Step)` : firstTitle;
 
               return {
-                id: addr,
-                status: statusStr,
+                id: addr as string,
+                status: statusStr as StatusType,
                 title: escrowTitle,
-                creatorAddress: funder,
+                creatorAddress: funder as string,
                 amount: Number(totalAmountRaw) / 1e6, // USDC uses 6 decimals
                 completedMilestones: completedCount,
                 totalMilestones: milestones.length,
@@ -215,7 +225,7 @@ export default function ExplorePage() {
           })
         );
 
-        const activeEscrows = escrowData.filter((e) => e !== null) as any[];
+        const activeEscrows = escrowData.filter((e): e is ExploreEscrow => e !== null);
         setEscrows(activeEscrows.reverse());
       } catch (e) {
         console.error("Failed to fetch escrows", e);
@@ -234,7 +244,7 @@ export default function ExplorePage() {
   const activeCount = allDisplayEscrows.filter((e) => e.status === "active").length;
   const completedCount = allDisplayEscrows.filter((e) => e.status === "completed").length;
   const totalLocked = allDisplayEscrows
-    .filter((e) => e.status !== "completed" && e.status !== "cancelled")
+    .filter((e) => e.status !== "completed")
     .reduce((sum, e) => sum + e.amount, 0);
 
   const formatUSDCLocked = (amount: number) => {

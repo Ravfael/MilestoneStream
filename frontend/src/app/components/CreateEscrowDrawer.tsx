@@ -1,12 +1,26 @@
 "use client";
 import { useState, useEffect } from "react";
 import AmountDisplay from "./AmountDisplay";
-import MilestoneTypeChip from "./MilestoneTypeChip";
+import MilestoneTypeChip, { type MilestoneType } from "./MilestoneTypeChip";
+
+export interface EscrowFormData {
+  title: string;
+  description: string;
+  builderWallet: string;
+  totalAmount: string;
+  milestones: Array<{
+    type: string;
+    description: string;
+    params: string;
+    amount: string;
+    deadline: string;
+  }>;
+}
 
 interface CreateEscrowDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  onDeploy: (data: any) => void;
+  onDeploy: (data: EscrowFormData) => void;
 }
 
 export default function CreateEscrowDrawer({ isOpen, onClose, onDeploy }: CreateEscrowDrawerProps) {
@@ -315,7 +329,7 @@ export default function CreateEscrowDrawer({ isOpen, onClose, onDeploy }: Create
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         <span style={{ fontSize: "0.875rem", fontWeight: 500 }}>Milestone {i + 1}</span>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <MilestoneTypeChip type={m.type as any} />
+                          <MilestoneTypeChip type={m.type as MilestoneType} />
                         </div>
                       </div>
                       <span className="mono" style={{ fontWeight: 600 }}>{m.amount} USDC</span>

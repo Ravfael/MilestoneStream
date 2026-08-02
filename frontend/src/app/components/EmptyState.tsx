@@ -18,13 +18,7 @@ interface EmptyStateProps {
   id?: string;
 }
 
-export default function EmptyState({
-  title,
-  description,
-  action,
-  variant = "default",
-  id,
-}: EmptyStateProps) {
+export default function EmptyState({ title, description, action, variant = "default", id }: EmptyStateProps) {
   return (
     <div
       id={id}
@@ -77,41 +71,24 @@ export default function EmptyState({
         {description}
       </p>
 
-      {action && (
-        action.href ? (
-          <a
-            href={action.href}
-            className="btn btn-primary"
-            id={id ? `${id}-cta` : undefined}
-          >
+      {action &&
+        (action.href ? (
+          <a href={action.href} className="btn btn-primary" id={id ? `${id}-cta` : undefined}>
             {action.label}
           </a>
+        ) : variant === "wallet" || action.label.toLowerCase().includes("connect wallet") ? (
+          <ConnectButton.Custom>
+            {({ openConnectModal }) => (
+              <button className="btn btn-primary" onClick={openConnectModal} id={id ? `${id}-cta` : undefined} type="button">
+                {action.label}
+              </button>
+            )}
+          </ConnectButton.Custom>
         ) : (
-          variant === "wallet" || action.label.toLowerCase().includes("connect wallet") ? (
-            <ConnectButton.Custom>
-              {({ openConnectModal }) => (
-                <button
-                  className="btn btn-primary"
-                  onClick={openConnectModal}
-                  id={id ? `${id}-cta` : undefined}
-                  type="button"
-                >
-                  {action.label}
-                </button>
-              )}
-            </ConnectButton.Custom>
-          ) : (
-            <button
-              className="btn btn-primary"
-              onClick={action.onClick}
-              id={id ? `${id}-cta` : undefined}
-              type="button"
-            >
-              {action.label}
-            </button>
-          )
-        )
-      )}
+          <button className="btn btn-primary" onClick={action.onClick} id={id ? `${id}-cta` : undefined} type="button">
+            {action.label}
+          </button>
+        ))}
     </div>
   );
 }
@@ -121,7 +98,6 @@ function GeometricIllustration({ variant }: { variant: string }) {
   const primary = "var(--primary)";
   const primaryLight = "var(--primary-light)";
   const border = "var(--border)";
-  const muted = "var(--text-muted)";
 
   switch (variant) {
     case "streams":

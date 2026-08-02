@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
-
 interface StatConfig {
   label: string;
   value: number;
@@ -38,7 +36,7 @@ const STATS: StatConfig[] = [
 
 // Live animations removed: stats show static final values.
 
-function StatBlock({ stat, index }: { stat: StatConfig; index: number }) {
+function StatBlock({ stat }: { stat: StatConfig }) {
   const displayValue = stat.prefix ? `${stat.prefix}${stat.value.toLocaleString()}` : stat.value.toLocaleString();
   const isInlineSuffix = stat.suffix === "+";
 
@@ -66,8 +64,8 @@ export default function StatsBar() {
   return (
     <section id="stats-bar" className="stats-section">
       <div className="stats-container">
-        {STATS.map((stat, i) => (
-          <StatBlock key={stat.label} stat={stat} index={i} />
+        {STATS.map((stat) => (
+          <StatBlock key={stat.label} stat={stat} />
         ))}
       </div>
     </section>

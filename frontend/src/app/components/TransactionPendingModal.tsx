@@ -29,12 +29,14 @@ export default function TransactionPendingModal({
   state = "pending",
   errorMessage,
 }: TransactionPendingModalProps) {
+  const publicClient = usePublicClient();
   const [copied, setCopied] = useState(false);
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
 
-  // Reset copied state when modal reopens
-  useEffect(() => {
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (isOpen) setCopied(false);
-  }, [isOpen]);
+  }
 
   // Lock body scroll when open
   useEffect(() => {
@@ -55,7 +57,6 @@ export default function TransactionPendingModal({
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const publicClient = usePublicClient();
   const explorerUrl = publicClient?.chain?.blockExplorers?.default?.url || "https://sepolia.etherscan.io";
   const explorerName = publicClient?.chain?.blockExplorers?.default?.name || "Etherscan";
   const explorerTxUrl = `${explorerUrl}/tx/${txHash}`;
